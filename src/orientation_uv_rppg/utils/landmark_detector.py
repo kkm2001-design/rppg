@@ -38,6 +38,7 @@ class MediaPipeLandmarkDetector:
                 # extract outputs and scale landmarks
                 frame_outputs = []
                 H, W = frame.shape[0], frame.shape[1]
+
                 if frame_results.multi_face_landmarks is not None:
                     for frame_landmark in frame_results.multi_face_landmarks:
                         # Extract (x,y,z) and scale to image size.
@@ -48,6 +49,9 @@ class MediaPipeLandmarkDetector:
                         # store
                         frame_output = torch.tensor([x, y, z], dtype=torch.float32).T
                         frame_outputs.append(frame_output)
+                
+                # else : 
+                #     frame_output = torch.tensor()
 
                 # store
                 frame_outputs = torch.stack(frame_outputs, dim=0).squeeze()

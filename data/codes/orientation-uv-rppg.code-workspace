@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"path": "../../../../../nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data"
+		},
+		{
+			"path": "../../../../../nasdata2/2yhy/CNA_ours_IRB/edited/final_report_ppg"
+		}
+	],
+	"settings": {}
+}
