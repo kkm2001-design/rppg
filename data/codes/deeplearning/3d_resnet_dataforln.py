@@ -40,7 +40,7 @@ class rPPGDataset(Dataset) :
         return video_tensor, gt_tensor
 
 
-data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/data_for_dl'
+data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/data_for_ln'
 all_files = sorted(glob.glob(os.path.join(data_dir, 'final_dataset_*.h5')))
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
@@ -130,7 +130,7 @@ class rPPG_3D_ResNet(nn.Module):
         # -> [B, 64, 900, 1, 1]
         self.adaptive_pool = nn.AdaptiveAvgPool3d((None, 1, 1))
         
-        self.dropout = nn.Dropout(p=0.5)
+        self.dropout = nn.Dropout3d(p=0.5)
         # [Step 4] 1D 맥파(rPPG) 파형 변환용 Regressor (1x1x1 Conv)
         # 64가닥의 단서들을 조합하여 최종 1개의 파형으로 만듭니다.
         # -> [B, 1, 900, 1, 1]
@@ -205,8 +205,9 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = rPPG_3D_ResNet().to(device) 
 criterion = NegCorLoss()
-optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
-num_epochs = 50
+lr_ = 1e-4
+optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
+num_epochs = 200
 
 best_val_loss = float('inf')
 main_pbar = tqdm(range(num_epochs), desc="Total Epochs")
@@ -225,4 +226,4 @@ for epoch in main_pbar:
     
     if val_loss < best_val_loss:
         best_val_loss = val_loss
-        torch.save(model.state_dict(), 'best_rppg_model.pth')
+        torch.save(model.state_dict(), f'ln_model_lr:{str(lr_)}_epoch:{str(epoch)}.pth')
