@@ -47,7 +47,7 @@ class rPPGDataset(Dataset) :
         return video_tensor, gt_tensor
 
 
-data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/data_without_outlier'
+data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/data_without_outlier_doznorm'
 all_files = sorted(glob.glob(os.path.join(data_dir, 'final_dataset_*.h5')))
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
