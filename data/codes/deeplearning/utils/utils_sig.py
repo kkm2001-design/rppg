@@ -1,3 +1,27 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]='4'
+os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
+import h5py
+import sys
+import cv2
+import torch
+import numpy as np
+from tqdm import tqdm
+from pathlib import Path
+import matplotlib.pyplot as plt
+import gc
+import pandas as pd
+from scipy.fft import fft
+from scipy import signal
+from scipy.signal import butter, filtfilt
+import traceback
+from scipy.signal import find_peaks,welch
+from astropy.timeseries import LombScargle
+import neurokit2 as nk
+from scipy.interpolate import PchipInterpolator
+from vmdpy import VMD  
+
+
 def z_norm(sig) :
     return (sig - np.mean(sig)) / (np.std(sig) + 1e-6)
 
@@ -411,3 +435,33 @@ class get_sig(): #신호를 부위에 따라 얻는 class
         f_sig = roi_pixels.sum(axis=1) / (f_zcount + 1e-8)
 
         return f_sig
+
+
+# MAE 계산을 위한 헬퍼 함수
+def calculate_batch_mae(preds, targets, fs=30):
+    batch_size = preds.shape[0]
+    mae_sum = 0.0
+    valid_count = 0
+    
+    # GPU 텐서를 CPU 넘파이 배열로 변환
+    preds_np = preds.detach().cpu().numpy()
+    targets_np = targets.detach().cpu().numpy()
+    
+    for i in range(batch_size):
+        pred_sig = preds_np[i]
+        gt_sig = targets_np[i]
+        
+        # 1. Bandpass Filter 적용 (노이즈 제거)
+        pred_sig_filtered = butter_bandpass_filter(pred_sig, 0.75, 2.5, fs)
+
+        
+        # 2. FFT 기반 HR 추출
+        pred_hr, _, _ = hr_fft(pred_sig_filtered, fs)
+        gt_hr, _, _ = hr_fft(gt_sig, fs)
+        
+        # 신호가 너무 튀어서 peak를 못 찾은 경우(NaN) 예외 처리
+        if not np.isnan(pred_hr) and not np.isnan(gt_hr):
+            mae_sum += np.abs(pred_hr - gt_hr)
+            valid_count += 1
+            
+    return mae_sum, valid_count

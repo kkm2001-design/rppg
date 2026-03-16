@@ -15,6 +15,8 @@ import random
 import math
 from torchvision import transforms
 from torch import nn
+from utils.utils_sig import *
+
 
 # data loading
 class rPPGDataset(Dataset) :
@@ -101,42 +103,61 @@ class Neg_Pearson(nn.Module):
 
 
 
-# 1. validate 함수 수정 [cite: 32, 33]
-def validate(model, loader, criterion, device):
+# 1. validate 함수 수정
+def validate(model, loader, criterion, device, fs=30):
     model.eval()
     running_loss = 0.0
+    running_mae = 0.0
+    total_valid_samples = 0
 
     with torch.no_grad():
         for inputs, targets in loader: 
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs,_,_,_  = model(inputs)
+            outputs = model(inputs)
             loss = criterion(outputs, targets)
             running_loss += loss.item()
             
-    return running_loss / len(loader)
+            # MAE 계산
+            batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs)
+            running_mae += batch_mae_sum
+            total_valid_samples += valid_count
+            
+    avg_loss = running_loss / len(loader)
+    avg_mae = running_mae / total_valid_samples if total_valid_samples > 0 else 0.0
+    return avg_loss, avg_mae
 
-# 2. train_one_epoch 함수 수정 [cite: 29, 30]
-def train_one_epoch(model, loader, criterion, optimizer, device):
+# 2. train_one_epoch 함수 수정
+def train_one_epoch(model, loader, criterion, optimizer, device, fs=30):
     model.train()
     running_loss = 0.0
+    running_mae = 0.0
+    total_valid_samples = 0
     
     for inputs, targets in loader:
         inputs, targets = inputs.to(device), targets.to(device)
         
         optimizer.zero_grad()
-        outputs,_,_,_ = model(inputs)
+        outputs = model(inputs)
         loss = criterion(outputs, targets)
         
         loss.backward()
         optimizer.step()
         
         running_loss += loss.item()
-    return running_loss / len(loader)
+        
+        # MAE 계산
+        batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs)
+        running_mae += batch_mae_sum
+        total_valid_samples += valid_count
+
+    avg_loss = running_loss / len(loader)
+    avg_mae = running_mae / total_valid_samples if total_valid_samples > 0 else 0.0
+    return avg_loss, avg_mae
 
 # 설정 부분은 그대로 유지
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #model = rPPG_3D_ResNet().to(device) 
-model = PhysNet_padding_Encoder_Decoder_MAX().to(device) 
+model = rPPG_3D_ResNet().to(device) 
 criterion = Neg_Pearson().to(device)
 lr_ = 1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
@@ -147,15 +168,21 @@ main_pbar = tqdm(range(num_epochs), desc="Total Epochs")
 
 train_loss_list = []
 valid_loss_list = []
+train_mae_list, valid_mae_list = [], []
+
 
 for epoch in main_pbar:
-    train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
-    val_loss = validate(model, valid_loader, criterion, device)
+    train_loss, train_mae = train_one_epoch(model, train_loader, criterion, optimizer, device)
+    val_loss, val_mae = validate(model, valid_loader, criterion, device)
     
     train_loss_list.append(train_loss)
     valid_loss_list.append(val_loss)
+    train_mae_list.append(train_mae)
+    valid_mae_list.append(val_mae)
 
-    tqdm.write(f"Epoch [{epoch+1}/{num_epochs}] Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+    tqdm.write(f"Epoch [{epoch+1}/{num_epochs}] "
+               f"Train Loss: {train_loss:.4f}, MAE: {train_mae:.2f} BPM | "
+               f"Val Loss: {val_loss:.4f}, MAE: {val_mae:.2f} BPM")
     
     # if val_loss < best_val_loss:
     #     best_val_loss = val_loss
