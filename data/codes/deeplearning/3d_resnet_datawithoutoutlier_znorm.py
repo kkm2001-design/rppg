@@ -57,6 +57,8 @@ class rPPGDataset(Dataset) :
         #print(f"gt min: {gt_tensor.min()}")
         
         return video_tensor, gt_tensor
+
+
 print('train_files = all_files[:12] valid_files = all_files[12:16] test_files = all_files[:]')
 
 data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/data_without_outlier'
@@ -83,7 +85,6 @@ for inputs, targets in train_loader:
     print(f"Target GT Batch Shape: {targets.shape}")   # 예상: [4, 900]
     break
 
-    
 
 # 설정 부분은 그대로 유지
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
