@@ -363,8 +363,6 @@ class get_hrv :
 
 
 
-
-
 class get_sig(): #신호를 부위에 따라 얻는 class
     def __init__(self, frames):
         self.data = frames

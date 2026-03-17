@@ -16,6 +16,8 @@ import math
 from torchvision import transforms
 from torch import nn
 from utils.utils_sig import *
+from utils.Loss import *
+from utils.train import *
 
 
 # data loading
@@ -32,6 +34,9 @@ class rPPGDataset(Dataset) :
     def __len__(self) : ## len(train_dataset) 실행시 train_dataset.__len__() 이 실행됨
         return(len(self.data_info))
 
+    def _normalize(self, data):
+        return (data - 0.5) / 0.5
+
     def __getitem__(self, idx) :  ## train_dataset[0] 실행시 train_dataset.__getitem__(0) 이 실행됨
         file_path, window_idx = self.data_info[idx]
 
@@ -43,17 +48,24 @@ class rPPGDataset(Dataset) :
 
         video_tensor = torch.tensor(video, dtype = torch.float32)
         gt_tensor = torch.tensor(gt, dtype = torch.float32)
+
+
+        video_tensor = self._normalize(video_tensor)
+        #print(f"video max: {video_tensor.max()}")
+        #print(f"video min: {video_tensor.min()}")
+        #print(f"gt max: {gt_tensor.max()}")
+        #print(f"gt min: {gt_tensor.min()}")
         
         return video_tensor, gt_tensor
+print('train_files = all_files[:12] valid_files = all_files[12:16] test_files = all_files[:]')
 
-
-data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/data_without_outlier_doznorm'
+data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/data_without_outlier'
 all_files = sorted(glob.glob(os.path.join(data_dir, 'final_dataset_*.h5')))
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
-train_files = all_files[4:]
-test_files = all_files[2:4]
-valid_files = all_files[:2]
+train_files = all_files[:12]
+valid_files = all_files[12:16]
+test_files = all_files[:]
 
 train_dataset = rPPGDataset(train_files)
 valid_dataset = rPPGDataset(valid_files)
@@ -71,93 +83,12 @@ for inputs, targets in train_loader:
     print(f"Target GT Batch Shape: {targets.shape}")   # 예상: [4, 900]
     break
 
-            
-
-class Neg_Pearson(nn.Module):
-    """
-    The Neg_Pearson Module is from the orignal author of Physnet.
-    Code of 'Remote Photoplethysmograph Signal Measurement from Facial Videos Using Spatio-Temporal Networks' 
-    source: https://github.com/ZitongYu/PhysNet/blob/master/NegPearsonLoss.py
-    """
     
-    def __init__(self):
-        super(Neg_Pearson, self).__init__()
-        return
-
-
-    def forward(self, preds, labels):       
-        loss = 0
-        for i in range(preds.shape[0]):
-            sum_x = torch.sum(preds[i])               
-            sum_y = torch.sum(labels[i])             
-            sum_xy = torch.sum(preds[i]*labels[i])       
-            sum_x2 = torch.sum(torch.pow(preds[i],2))  
-            sum_y2 = torch.sum(torch.pow(labels[i],2)) 
-            N = preds.shape[1]
-            pearson = (N*sum_xy - sum_x*sum_y)/(torch.sqrt((N*sum_x2 - torch.pow(sum_x,2))*(N*sum_y2 - torch.pow(sum_y,2))))
-            loss += 1 - pearson
-            
-            
-        loss = loss/preds.shape[0]
-        return loss
-
-
-
-# 1. validate 함수 수정
-def validate(model, loader, criterion, device, fs=30):
-    model.eval()
-    running_loss = 0.0
-    running_mae = 0.0
-    total_valid_samples = 0
-
-    with torch.no_grad():
-        for inputs, targets in loader: 
-            inputs, targets = inputs.to(device), targets.to(device)
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
-            running_loss += loss.item()
-            
-            # MAE 계산
-            batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs)
-            running_mae += batch_mae_sum
-            total_valid_samples += valid_count
-            
-    avg_loss = running_loss / len(loader)
-    avg_mae = running_mae / total_valid_samples if total_valid_samples > 0 else 0.0
-    return avg_loss, avg_mae
-
-# 2. train_one_epoch 함수 수정
-def train_one_epoch(model, loader, criterion, optimizer, device, fs=30):
-    model.train()
-    running_loss = 0.0
-    running_mae = 0.0
-    total_valid_samples = 0
-    
-    for inputs, targets in loader:
-        inputs, targets = inputs.to(device), targets.to(device)
-        
-        optimizer.zero_grad()
-        outputs = model(inputs)
-        loss = criterion(outputs, targets)
-        
-        loss.backward()
-        optimizer.step()
-        
-        running_loss += loss.item()
-        
-        # MAE 계산
-        batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs)
-        running_mae += batch_mae_sum
-        total_valid_samples += valid_count
-
-    avg_loss = running_loss / len(loader)
-    avg_mae = running_mae / total_valid_samples if total_valid_samples > 0 else 0.0
-    return avg_loss, avg_mae
 
 # 설정 부분은 그대로 유지
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #model = rPPG_3D_ResNet().to(device) 
-model = rPPG_3D_ResNet().to(device) 
+model = PhysNet_padding_Encoder_Decoder_MAX().to(device) 
 criterion = Neg_Pearson().to(device)
 lr_ = 1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
