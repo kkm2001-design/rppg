@@ -20,7 +20,7 @@ from astropy.timeseries import LombScargle
 import neurokit2 as nk
 from scipy.interpolate import PchipInterpolator
 from vmdpy import VMD  
-
+from utils.registration_algorithm import MediaPipeLandmarkDetector
 
 def z_norm(sig) :
     return (sig - np.mean(sig)) / (np.std(sig) + 1e-6)
@@ -364,6 +364,19 @@ class get_hrv :
 
 
 class get_sig(): #신호를 부위에 따라 얻는 class
+    
+    detector = MediaPipeLandmarkDetector()
+    uv_numpy = detector.landmarks_uv.numpy()
+
+    roi_r_ls = [101, 118, 117, 123, 187, 207, 206, 36]
+    roi_l_ls = [330, 347, 346, 352, 411, 427, 426, 266]
+    roi_ls_all = roi_r_ls + roi_l_ls
+
+    roi_coords = (uv_numpy[roi_ls_all] * 64).astype(int)
+    roi_rows = roi_coords[:,1]
+    roi_cols = roi_coords[:,0]
+
+
     def __init__(self, frames):
         self.data = frames
 
@@ -407,14 +420,14 @@ class get_sig(): #신호를 부위에 따라 얻는 class
 
         return sig_rl    
 
-    def get_rl_allrois(self, r_coords, l_coords):
+    def get_rl_allrois(self):
         T, H, W = self.data.shape
         
         # 1. 64x64 크기의 빈 검은색 캔버스(마스크) 생성
         mask = np.zeros((H, W), dtype=np.uint8)
 
-        roi_r_coords = (uv_numpy[roi_r_ls] * 64).astype(np.int32)
-        roi_l_coords = (uv_numpy[roi_l_ls] * 64).astype(np.int32)
+        roi_r_coords = (self.uv_numpy[self.roi_r_ls] * 64).astype(np.int32)
+        roi_l_coords = (self.uv_numpy[self.roi_l_ls] * 64).astype(np.int32)
 
         # 2. cv2.fillPoly에 맞게 차원 변경 (N, 1, 2) 형태의 int32 타입
         pts_r = roi_r_coords.reshape((-1, 1, 2)).astype(np.int32)

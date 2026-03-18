@@ -14,7 +14,7 @@ def validate(model, loader, criterion, device, fs=30):
     with torch.no_grad():
         for inputs, targets in loader: 
             inputs, targets = inputs.to(device), targets.to(device)
-            outputs,_,_,_ = model(inputs)
+            outputs = model(inputs)
             #outputs = model(inputs)
 
             loss = criterion(outputs, targets)
@@ -40,7 +40,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, fs=30):
         inputs, targets = inputs.to(device), targets.to(device)
         
         optimizer.zero_grad()
-        outputs,_,_,_ = model(inputs)
+        outputs = model(inputs)
         #outputs = model(inputs)
         loss = criterion(outputs, targets)
         
