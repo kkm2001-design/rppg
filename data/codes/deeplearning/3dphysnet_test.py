@@ -21,22 +21,20 @@ from utils.dataloader import *
 from utils.models import *
 
 
-
-
-print('conv1test1e-4 64 train_file/ valid files same sanity test')
+print('3dphysnettest train_files = all_files[:12] valid_files = all_files[12:14] test_files = all_files[:]')
 
 data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/data_without_outlier'
 all_files = sorted(glob.glob(os.path.join(data_dir, 'final_dataset_*.h5')))
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
-train_files = all_files[:1]
-valid_files = all_files[:1]
+train_files = all_files[:12]
+valid_files = all_files[12:14]
 
 
-train_dataset = rPPGDataset_1D(train_files)
-valid_dataset = rPPGDataset_1D(valid_files)
+train_dataset = rPPGDataset(train_files)
+valid_dataset = rPPGDataset(valid_files)
 
-batch_size =256
+batch_size = 8
 
 train_loader = DataLoader(train_dataset, batch_size = batch_size , shuffle = True, num_workers =4)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
@@ -52,7 +50,7 @@ for inputs, targets in train_loader:
 # 설정 부분은 그대로 유지
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #model = rPPG_3D_ResNet().to(device) 
-model = UNet1D().to(device) 
+model = PhysNet_padding_Encoder_Decoder_MAX().to(device) 
 criterion = Neg_Pearson().to(device)
 lr_ = 1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
