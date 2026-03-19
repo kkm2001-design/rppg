@@ -14,8 +14,8 @@ import traceback
 from registration_algorithm import *
 
 
-h5_dir = "/nasdata4/2yhy/rPPG_code/rPPG_datasets/h5_data/MR-NIRP_indoor"
-output_dir ='/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_registration_70'
+h5_dir = "/nasdata4/2yhy/rPPG_code/rPPG_datasets/h5_data/MR-NIRP_driving_still"
+output_dir ='/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_driving_registration'
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 thresh_angle = 70
