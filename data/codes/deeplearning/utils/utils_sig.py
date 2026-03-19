@@ -30,7 +30,7 @@ def robust_norm(sig):
     iqr = q3 - q1
     return (sig - np.median(sig)) / (iqr + 1e-6)
 
-def butter_bandpass_filter(data, lowcut, highcut, fs, order=4):
+def butter_bandpass_filter(data, lowcut = 0.75, highcut= 2.5 , fs = 30 , order=4):
     nyq = 0.5 * fs # 나이퀴스트 주파수
     low = lowcut / nyq
     high = highcut / nyq

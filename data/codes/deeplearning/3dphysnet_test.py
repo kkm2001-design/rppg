@@ -23,13 +23,12 @@ from utils.models import *
 
 print('3dphysnettest train_files = all_files[:12] valid_files = all_files[12:14] test_files = all_files[:]')
 
-data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/data_without_outlier'
+data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier'
 all_files = sorted(glob.glob(os.path.join(data_dir, 'final_dataset_*.h5')))
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
 train_files = all_files[:12]
 valid_files = all_files[12:14]
-
 
 train_dataset = rPPGDataset(train_files)
 valid_dataset = rPPGDataset(valid_files)
@@ -48,6 +47,7 @@ for inputs, targets in train_loader:
 
 
 # 설정 부분은 그대로 유지
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #model = rPPG_3D_ResNet().to(device) 
 model = PhysNet_padding_Encoder_Decoder_MAX().to(device) 

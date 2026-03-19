@@ -79,7 +79,7 @@ class PhysNet_padding_Encoder_Decoder_MAX(nn.Module):
         self.MaxpoolSpaTem = nn.MaxPool3d((2, 2, 2), stride=2)
 
         # self.poolspa = nn.AdaptiveMaxPool3d((frames,1,1))    # pool only spatial space
-        self.poolspa = nn.AdaptiveAvgPool3d((900, 1, 1))
+        self.poolspa = nn.AdaptiveAvgPool3d((None , 1, 1))
 
     def forward(self, x):
 

@@ -43,10 +43,10 @@ class rPPGDataset(Dataset) :
 
 
         video_tensor = self._normalize(video_tensor)
-        #print(f"video max: {video_tensor.max()}")
-        #print(f"video min: {video_tensor.min()}")
-        #print(f"gt max: {gt_tensor.max()}")
-        #print(f"gt min: {gt_tensor.min()}")
+        # print(f"video max: {video_tensor.max()}")
+        # print(f"video min: {video_tensor.min()}")
+        # print(f"gt max: {gt_tensor.max()}")
+        # print(f"gt min: {gt_tensor.min()}")
         
         return video_tensor, gt_tensor
 
