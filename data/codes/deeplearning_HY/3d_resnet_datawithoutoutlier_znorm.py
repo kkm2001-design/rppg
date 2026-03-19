@@ -33,9 +33,9 @@ train_files = all_files[:12]
 valid_files = all_files[12:14]
 test_files = all_files[14:]
 
-train_dataset = rPPGDataset(train_files)
-valid_dataset = rPPGDataset(valid_files)
-test_dataset = rPPGDataset(test_files)
+train_dataset = rPPGDataset(train_files, mode='train', crop_len=160)
+valid_dataset = rPPGDataset(valid_files, mode='val', crop_len=160)
+test_dataset = rPPGDataset(test_files, mode='val', crop_len=160)
 
 batch_size = 8
 

@@ -15,6 +15,8 @@ from utils.utils_sig import get_sig
 class rPPGDataset(Dataset) :
     def __init__(self, h5_file_paths, mode='train', crop_len=150) : 
         self.data_info = []
+        self.crop_len = crop_len
+        self.mode = mode
 
         for path in h5_file_paths :
             with h5py.File(path, 'r', locking=False) as f :
@@ -76,7 +78,7 @@ class rPPGDataset(Dataset) :
         video_tensor = torch.cat([first_diff, diff], dim=1)           # (C, T, H, W)
 
         # z-score normalize after diff
-        video_tensor = self._znormalize(video_tensor)
+        video_tensor_ = self._znormalize(video_tensor)
 
         #print(f"video max: {video_tensor.max()}")
         #print(f"video min: {video_tensor.min()}")
