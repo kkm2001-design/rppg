@@ -67,7 +67,7 @@ Thumbs.db
 # Project-specific
 deeplearning_HY/
 parameters_save/
-../../../pics/
+pics/
 *.h5
 *.pth
 *.pt
