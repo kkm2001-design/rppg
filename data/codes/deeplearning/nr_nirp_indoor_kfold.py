@@ -1,0 +1,69 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
+import torch
+import glob
+from utils.dataloader import rPPGDataset
+from utils.k_fold_test import *
+from utils.models import *
+
+# ──────────────────────────────────────────────
+# 경로 설정
+# ──────────────────────────────────────────────
+DATA_DIR   = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_dl_data'
+PIC_DIR    = '/home/son/orientation-uv-rppg/data/pics/MR-nirp_indoor'       # loss curve 사진 저장
+PARAM_DIR  = '/home/son/orientation-uv-rppg/data/codes/deeplearning/parameters_save/MR-nirp_indoor'  # .pth 저장
+DEVICE     = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# ──────────────────────────────────────────────
+# subject → file 매핑 구성
+# ──────────────────────────────────────────────
+subject_ids = [f'Subject{i}' for i in range(1, 9)]
+
+subject_file_map = {}
+for sid in subject_ids:
+    files = sorted(glob.glob(os.path.join(DATA_DIR, f'{sid}_*_940_uv_windowed.h5')))
+    if files:
+        subject_file_map[sid] = files
+
+print("Subject-File map:")
+for k, v in subject_file_map.items():
+    print(f"  {k}: {[os.path.basename(f) for f in v]}")
+print(f"총 subject 수: {len(subject_file_map)}")
+
+# ──────────────────────────────────────────────
+# 실험 1: PhysNet + fixed norm + LOSO  (baseline)
+# ──────────────────────────────────────────────
+results = run_kfold(
+    model_fn         = lambda: PhysNet_padding_Encoder_Decoder_MAX(frames=300),
+    subject_file_map = subject_file_map,
+    Dataset_cls      = rPPGDataset,
+    norm_type        = 'fixed',
+    device           = DEVICE,
+    num_epochs       = 100,
+    batch_size       = 8,
+    lr               = 1e-4,
+    pic_dir          = PIC_DIR,
+    param_dir        = PARAM_DIR,
+    tag              = 'physnet_fixed_LOSO',
+    k                = None,      # LOSO (8-fold)
+)
+
+# ──────────────────────────────────────────────
+# 실험 2: PhysNet + zscore norm + LOSO  (비교)
+# 실험 1 결과 확인 후 주석 해제
+# ──────────────────────────────────────────────
+# results = run_kfold(
+#     model_fn         = lambda: PhysNet_padding_Encoder_Decoder_MAX(frames=300),
+#     subject_file_map = subject_file_map,
+#     Dataset_cls      = rPPGDataset,
+#     norm_type        = 'zscore',
+#     device           = DEVICE,
+#     num_epochs       = 100,
+#     batch_size       = 8,
+#     lr               = 1e-4,
+#     pic_dir          = PIC_DIR,
+#     param_dir        = PARAM_DIR,
+#     tag              = 'physnet_zscore_LOSO',
+#     k                = None,
+# )
