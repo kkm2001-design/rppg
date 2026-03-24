@@ -1,5 +1,4 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]='4'
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 import h5py
 import torch

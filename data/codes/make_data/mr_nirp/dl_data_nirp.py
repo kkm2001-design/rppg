@@ -7,11 +7,11 @@ from scipy import signal
 import traceback
 
 # ===== 경로 설정 =====
-input_dir  = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_driving_registration'
-output_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_driving_dl_data'
+input_dir  = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_indoor_registration_70'
+output_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_indoor_dl_data_128frame'
 os.makedirs(output_dir, exist_ok=True)
 
-window_size = 300
+window_size = 128
 fs_video = 30.0
 
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=2):

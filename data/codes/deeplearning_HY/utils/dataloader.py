@@ -73,19 +73,20 @@ class rPPGDataset(Dataset) :
         diff = (video_tensor[:, 1:] - video_tensor[:, :-1]) / \
                (video_tensor[:, 1:] + video_tensor[:, :-1] + 1e-9)   # (C, T-1, H, W)
 
-        # first valid diff copy -> keep same T
-        first_diff = diff[:, :1].clone()
-        video_tensor = torch.cat([first_diff, diff], dim=1)           # (C, T, H, W)
+        first = diff[:, 0:1]         # (1,1,H,W)
+        diff = torch.cat([first, diff], dim=1)   # (1,T,H,W)
+
+        diff = torch.clamp(diff, min=-3.0, max=3.0)
 
         # z-score normalize after diff
-        video_tensor_ = self._znormalize(video_tensor)
+        video_tensor_ = self._znormalize(diff)
 
         #print(f"video max: {video_tensor.max()}")
         #print(f"video min: {video_tensor.min()}")
         #print(f"gt max: {gt_tensor.max()}")
         #print(f"gt min: {gt_tensor.min()}")
         
-        return video_tensor_, gt_tensor
+        return video_tensor_, gt_tensor_
 
 
 class rPPGDataset_1D(Dataset) :
