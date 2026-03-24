@@ -11,7 +11,7 @@ input_dir  = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_pre
 output_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/IMVIA-NIR_dl_data'
 os.makedirs(output_dir, exist_ok=True)
 
-window_size = 300
+window_size = 128
 fs_video = 20.0
 
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=2):
