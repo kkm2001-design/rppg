@@ -65,6 +65,12 @@ class rPPGDataset(Dataset):
         video_tensor = torch.tensor(video, dtype=torch.float32)
         gt_tensor    = torch.tensor(gt,    dtype=torch.float32)
         # gt_ppg는 이미 전처리 완료 → 추가 처리 없음
+
+        # print(f'video shape : {video_tensor.shape}')
+        # print(f"video max: {video_tensor.max()}")
+        # print(f"video min: {video_tensor.min()}")
+        # print(f"gt max: {gt_tensor.max()}")
+        # print(f"gt min: {gt_tensor.min()}")
  
         return video_tensor, gt_tensor
 

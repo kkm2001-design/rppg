@@ -29,7 +29,7 @@ def robust_norm(sig):
     iqr = q3 - q1
     return (sig - np.median(sig)) / (iqr + 1e-6)
 
-def butter_bandpass_filter(data, lowcut = 0.75, highcut= 2.5 , fs = 30 , order=4):
+def butter_bandpass_filter(data, lowcut = 0.75, highcut= 2.5 , fs = 20 , order=4):
     nyq = 0.5 * fs # 나이퀴스트 주파수
     low = lowcut / nyq
     high = highcut / nyq
@@ -448,7 +448,7 @@ class get_sig(): #신호를 부위에 따라 얻는 class
 
 
 # MAE 계산을 위한 헬퍼 함수
-def calculate_batch_mae(preds, targets, fs=30):
+def calculate_batch_mae(preds, targets, fs=20):
     batch_size = preds.shape[0]
     mae_sum = 0.0
     valid_count = 0

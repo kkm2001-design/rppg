@@ -22,7 +22,7 @@ def forward(model, inputs):
 # ──────────────────────────────────────────────
 # One epoch
 # ──────────────────────────────────────────────
-def train_one_epoch(model, loader, criterion, optimizer, device, fs=30):
+def train_one_epoch(model, loader, criterion, optimizer, device, fs = 20):
     model.train()
     running_loss, running_mae, total_valid = 0.0, 0.0, 0
 
@@ -44,7 +44,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, fs=30):
     return avg_loss, avg_mae
 
 
-def validate(model, loader, criterion, device, fs=30):
+def validate(model, loader, criterion, device, fs= 20):
     model.eval()
     running_loss, running_mae, total_valid = 0.0, 0.0, 0
 
@@ -136,7 +136,7 @@ def run_kfold(
         model     = model_fn().to(device)
         criterion = Neg_Pearson().to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=1e-5)
+        #scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=1e-5)
 
         train_losses, val_losses = [], []
         train_maes,   val_maes   = [], []
@@ -156,7 +156,7 @@ def run_kfold(
             train_maes.append(tr_mae)
             val_maes.append(vl_mae)
 
-            scheduler.step()
+            #scheduler.step()
 
             # 전체 에폭 중 최소 MAE 추적
             if vl_mae < best_min_mae:
@@ -168,7 +168,7 @@ def run_kfold(
                 'tr_mae' : f'{tr_mae:.2f}',
                 'vl_loss': f'{vl_loss:.4f}',
                 'vl_mae' : f'{vl_mae:.2f}',
-                'lr'     : f'{scheduler.get_last_lr()[0]:.2e}'
+                #'lr'     : f'{scheduler.get_last_lr()[0]:.2e}'
             }, refresh=False)
 
             # best val loss 갱신 시 → MAE도 함께 저장

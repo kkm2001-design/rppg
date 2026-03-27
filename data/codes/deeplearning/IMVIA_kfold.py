@@ -42,14 +42,14 @@ print(f"총 subject 수: {len(subject_file_map)}")
 
 
 results = run_kfold(
-    model_fn         = lambda: model_select(frames=300),
+    model_fn         = lambda: model_select(frames=128),
     subject_file_map = subject_file_map,
     Dataset_cls      = rPPGDataset,
     norm_type        = 'fixed',
     device           = DEVICE,
     num_epochs       = 100,
     batch_size       = 8,
-    lr               = 1e-3,
+    lr               = 5*1e-4,
     pic_dir          = PIC_DIR,
     param_dir        = PARAM_DIR,
     tag              = 'phynet_fixed_3*1e-5~1e-6_LOSO',
