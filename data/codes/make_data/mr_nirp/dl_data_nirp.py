@@ -8,10 +8,10 @@ import traceback
 
 # ===== 경로 설정 =====
 input_dir  = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_indoor_registration_70'
-output_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_indoor_dl_data_128frame'
+output_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_indoor_dl_data_900frame'
 os.makedirs(output_dir, exist_ok=True)
 
-window_size = 128
+window_size = 900
 fs_video = 30.0
 
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=2):

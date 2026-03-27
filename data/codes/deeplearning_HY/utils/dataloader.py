@@ -10,6 +10,41 @@ import sys
 from tqdm import tqdm 
 from utils.utils_sig import get_sig
 
+@staticmethod
+def diff_normalize_data(data):
+    """Calculate discrete difference in video data along the time-axis and nornamize by its standard deviation."""
+    n, h, w, c = data.shape
+    diffnormalized_len = n - 1
+    diffnormalized_data = np.zeros((diffnormalized_len, h, w, c), dtype=np.float32)
+    diffnormalized_data_padding = np.zeros((1, h, w, c), dtype=np.float32)
+
+    nonzero_mask = data != 0
+    if nonzero_mask.sum() > 0:
+        std = np.std(data[nonzero_mask])
+        std = max(std, 1e-7)
+    else:
+        std = 1.0
+        
+    for j in range(diffnormalized_len):
+        diffnormalized_data[j, :, :, :] = (data[j + 1, :, :, :] - data[j, :, :, :]) / (
+                data[j + 1, :, :, :] + data[j, :, :, :] + 1e-7)
+
+    diffnormalized_data = np.clip(diffnormalized_data, -1.0, 1.0)
+    # 0이 아닌 픽셀만으로 std 계산
+    #diffnormalized_data = diffnormalized_data / np.std(diffnormalized_data)
+    diffnormalized_data = diffnormalized_data / std
+    diffnormalized_data = np.append(diffnormalized_data, diffnormalized_data_padding, axis=0)
+    diffnormalized_data[np.isnan(diffnormalized_data)] = 0
+    return diffnormalized_data
+
+@staticmethod
+def diff_normalize_label(label):
+    """Calculate discrete difference in labels along the time-axis and normalize by its standard deviation."""
+    diff_label = np.diff(label, axis=0)
+    diffnormalized_label = diff_label / np.std(diff_label)
+    diffnormalized_label = np.append(diffnormalized_label, np.zeros(1), axis=0)
+    diffnormalized_label[np.isnan(diffnormalized_label)] = 0
+    return diffnormalized_label
 
 # data loading
 class rPPGDataset(Dataset) :
@@ -27,12 +62,6 @@ class rPPGDataset(Dataset) :
     def __len__(self) : ## len(train_dataset) 실행시 train_dataset.__len__() 이 실행됨
         return(len(self.data_info))
 
-    def _normalize(self, data):
-        return (data - 0.5) / 0.5
-
-    def _znormalize(self, data):
-        return (data - data.mean()) / (data.std()+1e-9)
-
     def __getitem__(self, idx):
         file_path, window_idx = self.data_info[idx]
 
@@ -41,7 +70,7 @@ class rPPGDataset(Dataset) :
             gt = f['gt_ppg'][window_idx]        # expected: (T,)
 
         # uint8 -> float32, [0,255] -> [0,1]
-        video = video.astype(np.float32) / 255.0
+        video = video.astype(np.float32)
         gt = gt.astype(np.float32)
 
         T = video.shape[0]
@@ -62,31 +91,30 @@ class rPPGDataset(Dataset) :
 
         # (T, H, W) -> (1, T, H, W)
         video = np.expand_dims(video, axis=0)
+        video = np.transpose(video, (1,2,3,0))
+
+        #print(f"video max: {video.max()}")
+        #print(f"video min: {video.min()}")
+        #print(f"gt max: {gt.max()}")
+        #print(f"gt min: {gt.min()}")
+
+        video = diff_normalize_data(video)
+        gt = diff_normalize_label(gt)
 
         video_tensor = torch.tensor(video, dtype=torch.float32)
         gt_tensor = torch.tensor(gt, dtype=torch.float32)
-
+        video_tensor = video_tensor.permute(3,0,1,2)
         # -----------------------------
         # normalized frame difference
         # input shape: (C, T, H, W)
         # -----------------------------
-        diff = (video_tensor[:, 1:] - video_tensor[:, :-1]) / \
-               (video_tensor[:, 1:] + video_tensor[:, :-1] + 1e-9)   # (C, T-1, H, W)
-
-        first = diff[:, 0:1]         # (1,1,H,W)
-        diff = torch.cat([first, diff], dim=1)   # (1,T,H,W)
-
-        diff = torch.clamp(diff, min=-3.0, max=3.0)
-
-        # z-score normalize after diff
-        video_tensor_ = self._znormalize(diff)
 
         #print(f"video max: {video_tensor.max()}")
         #print(f"video min: {video_tensor.min()}")
         #print(f"gt max: {gt_tensor.max()}")
         #print(f"gt min: {gt_tensor.min()}")
         
-        return video_tensor_, gt_tensor_
+        return video_tensor, gt_tensor
 
 
 class rPPGDataset_1D(Dataset) :

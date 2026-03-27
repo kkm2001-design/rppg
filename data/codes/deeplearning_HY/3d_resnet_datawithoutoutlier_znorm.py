@@ -1,7 +1,7 @@
 import os
 # torch import 전에 반드시 실행
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID" 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 
 import h5py
@@ -24,8 +24,7 @@ from utils.train import *
 from utils.dataloader import *
 
 
-
-data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/data_without_outlier'
+data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_normalizeX'
 all_files = sorted(glob.glob(os.path.join(data_dir, 'final_dataset_*.h5')))
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
@@ -33,14 +32,14 @@ train_files = all_files[:12]
 valid_files = all_files[12:14]
 test_files = all_files[14:]
 
-train_dataset = rPPGDataset(train_files, mode='train', crop_len=160)
-valid_dataset = rPPGDataset(valid_files, mode='val', crop_len=160)
-test_dataset = rPPGDataset(test_files, mode='val', crop_len=160)
+train_dataset = rPPGDataset(train_files, mode='train', crop_len=300)
+valid_dataset = rPPGDataset(valid_files, mode='val', crop_len=300)
+test_dataset = rPPGDataset(test_files, mode='val', crop_len=300)
 
 batch_size = 8
 
-train_loader = DataLoader(train_dataset, batch_size = batch_size , shuffle = True, num_workers =4)
-valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+train_loader = DataLoader(train_dataset, batch_size=batch_size , shuffle=True,  num_workers=4)
+valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False,  num_workers=4)
 test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
 for inputs, targets in train_loader:
@@ -52,15 +51,15 @@ for inputs, targets in train_loader:
 
 # 설정 부분은 그대로 유지
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#model = rPPG_3D_ResNet().to(device) 
 model = PhysNet_padding_Encoder_Decoder_MAX().to(device) 
-criterion = Neg_Pearson().to(device)
+#model = rPPGTransformer().to(device) 
+criterion = RhythmFormer_Loss().to(device)
 lr_ = 1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
 num_epochs = 100
 
 best_val_loss = float('inf')
-main_pbar = tqdm(range(num_epochs), desc="Total Epochs")
+#main_pbar = tqdm(range(num_epochs), desc="Total Epochs")
 
 train_loss_list = []
 valid_loss_list = []
@@ -68,7 +67,7 @@ train_mae_list, valid_mae_list = [], []
 
 test_loss_list, test_mae_list = [], []
 
-for epoch in main_pbar:
+for epoch in range(num_epochs):
     train_loss, train_mae = train_one_epoch(model, train_loader, criterion, optimizer, device)
     val_loss, val_mae = validate(model, valid_loader, criterion, device)
     test_loss, test_mae = validate(model, test_loader, criterion, device)
