@@ -29,7 +29,7 @@ def robust_norm(sig):
     iqr = q3 - q1
     return (sig - np.median(sig)) / (iqr + 1e-6)
 
-def butter_bandpass_filter(data, lowcut = 0.75, highcut= 2.5 , fs = 20 , order=4):
+def butter_bandpass_filter(data, lowcut = 0.66, highcut= 2.5 , fs = 30 , order=4):
     nyq = 0.5 * fs # 나이퀴스트 주파수
     low = lowcut / nyq
     high = highcut / nyq
@@ -40,7 +40,7 @@ def butter_bandpass_filter(data, lowcut = 0.75, highcut= 2.5 , fs = 20 , order=4
     return y
 
 
-def process_rppg_windows(avg_sig, sub_valid, window_size=900, max_gap_threshold=30, mode='normal', alp=800, k=3, lowcut=0.75, highcut=2.5, plot_g = False, plot_d = False,ref_ppg_sig = None):
+def process_rppg_windows(avg_sig, sub_valid, window_size=300, max_gap_threshold=30, mode='normal', alp=800, k=3, lowcut=0.75, highcut=2.5, plot_g = False, plot_d = False,ref_ppg_sig = None):
     """
     rPPG 신호를 윈도우 단위로 자르고, 결손 구간 길이에 따라 보간 또는 폐기합니다.
     """
@@ -448,7 +448,7 @@ class get_sig(): #신호를 부위에 따라 얻는 class
 
 
 # MAE 계산을 위한 헬퍼 함수
-def calculate_batch_mae(preds, targets, fs=20):
+def calculate_batch_mae(preds, targets, fs=30):
     batch_size = preds.shape[0]
     mae_sum = 0.0
     valid_count = 0
@@ -462,7 +462,7 @@ def calculate_batch_mae(preds, targets, fs=20):
         gt_sig = targets_np[i]
         
         # 1. Bandpass Filter 적용 (노이즈 제거)
-        pred_sig_filtered = butter_bandpass_filter(pred_sig, 0.75, 2.5, fs)
+        pred_sig_filtered = butter_bandpass_filter(pred_sig, 0.66, 2.5, fs)
 
         
         # 2. FFT 기반 HR 추출

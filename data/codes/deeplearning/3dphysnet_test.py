@@ -21,19 +21,22 @@ from utils.dataloader import *
 from utils.models import *
 
 
-print('3dphysnettest train_files = all_files[:12] valid_files = all_files[12:14] test_files = all_files[:]')
+print('3dphysnettest train_files = all_files[:12] valid_files = all_files[13:15] test_files = all_files[:]')
+print('300frame / hybridloss test/ gt subjectwise test')
 
-data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier'
-all_files = sorted(glob.glob(os.path.join(data_dir, 'final_dataset_*.h5')))
+data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_len300_gtsubjectznorm'
+parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/300frame_mse0.5_ncor1.0_subjectwiseznorm'
+os.makedirs(parameter_save_dir, exist_ok= True)
+
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
 train_files = all_files[:12]
-valid_files = all_files[12:14]
+valid_files = all_files[13:]
 
 train_dataset = rPPGDataset(train_files)
 valid_dataset = rPPGDataset(valid_files)
 
-batch_size = 8
+batch_size = 24
 
 train_loader = DataLoader(train_dataset, batch_size = batch_size , shuffle = True, num_workers =4)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
@@ -51,8 +54,8 @@ for inputs, targets in train_loader:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #model = rPPG_3D_ResNet().to(device) 
 model = PhysNet_padding_Encoder_Decoder_MAX().to(device) 
-criterion = Neg_Pearson().to(device)
-lr_ = 1e-4
+criterion = HybridLoss(ncor_weight=1.0, mse_weight=0.5).to(device)
+lr_ = 5*1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
 num_epochs = 200
 
@@ -65,8 +68,8 @@ train_mae_list, valid_mae_list = [], []
 
 
 for epoch in main_pbar:
-    train_loss, train_mae = train_one_epoch(model, train_loader, criterion, optimizer, device)
-    val_loss, val_mae = validate(model, valid_loader, criterion, device)
+    train_loss, train_mae, train_ncor, train_mse = train_one_epoch(model, train_loader, criterion, optimizer, device)
+    val_loss, val_mae, avg_ncor, avg_mse  = validate(model, valid_loader, criterion, device)
     
     train_loss_list.append(train_loss)
     valid_loss_list.append(val_loss)
@@ -74,12 +77,11 @@ for epoch in main_pbar:
     valid_mae_list.append(val_mae)
 
     tqdm.write(f"Epoch [{epoch+1}/{num_epochs}] "
-               f"Train Loss: {train_loss:.4f}, MAE: {train_mae:.2f} BPM | "
-               f"Val Loss: {val_loss:.4f}, MAE: {val_mae:.2f} BPM")
+               f"Train Loss: {train_loss:.4f}, MAE: {train_mae:.2f} BPM, NCorr: {train_ncor:.4f}, MSE: {train_mse:.4f} "
+               f"Val Loss: {val_loss:.4f}, MAE: {val_mae:.2f} BPM, NCorr : {avg_ncor: .4f}, MSE : {avg_mse: .4f}")
     
-    # if val_loss < best_val_loss:
-    #     best_val_loss = val_loss
-    #     #torch.save(model.state_dict(), f'3dres_data_wo_ol_lr:{str(lr_)}_epoch:{str(epoch)}.pth')
+
+    torch.save(model.state_dict(), os.path.join(parameter_save_dir,f'physent_data_wo_ol_lr:{str(lr_)}_epoch:{str(epoch)}_MAE:{val_mae: .2f}.pth'))
 
 
 

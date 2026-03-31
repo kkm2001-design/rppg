@@ -17,20 +17,19 @@ def diff_normalize_data(data):
     diffnormalized_len = n - 1
     diffnormalized_data = np.zeros((diffnormalized_len, h, w, c), dtype=np.float32)
     diffnormalized_data_padding = np.zeros((1, h, w, c), dtype=np.float32)
-
-    nonzero_mask = data != 0
-    if nonzero_mask.sum() > 0:
-        std = np.std(data[nonzero_mask])
-        std = max(std, 1e-7)
-    else:
-        std = 1.0
-        
+    
     for j in range(diffnormalized_len):
         diffnormalized_data[j, :, :, :] = (data[j + 1, :, :, :] - data[j, :, :, :]) / (
-                data[j + 1, :, :, :] + data[j, :, :, :] + 1e-7)
+                data[j + 1, :, :, :] + data[j, :, :, :] + 1e-6)
 
     diffnormalized_data = np.clip(diffnormalized_data, -1.0, 1.0)
     # 0이 아닌 픽셀만으로 std 계산
+    nonzero_mask = diffnormalized_data != 0
+    if nonzero_mask.sum() > 0:
+        std = np.std(diffnormalized_data[nonzero_mask])
+        std = max(std, 1e-6)
+    else:
+        std = 1.0
     #diffnormalized_data = diffnormalized_data / np.std(diffnormalized_data)
     diffnormalized_data = diffnormalized_data / std
     diffnormalized_data = np.append(diffnormalized_data, diffnormalized_data_padding, axis=0)
@@ -64,56 +63,38 @@ class rPPGDataset(Dataset) :
 
     def __getitem__(self, idx):
         file_path, window_idx = self.data_info[idx]
-
+    
         with h5py.File(file_path, 'r', locking=False) as f:
-            video = f['video'][window_idx]      # expected: (T, H, W)
-            gt = f['gt_ppg'][window_idx]        # expected: (T,)
-
-        # uint8 -> float32, [0,255] -> [0,1]
-        video = video.astype(np.float32)
-        gt = gt.astype(np.float32)
-
+            video = f['video'][window_idx].astype(np.float32)  # (T, H, W)
+            gt    = f['gt_ppg'][window_idx].astype(np.float32) # (T,)
+    
         T = video.shape[0]
-
-        # -----------------------------
-        # temporal crop
-        # -----------------------------
+    
+        # ── temporal crop ──
         if self.crop_len is not None and self.crop_len < T:
             if self.mode == 'train':
                 start = np.random.randint(0, T - self.crop_len + 1)
             else:
-                # val/test: deterministic center crop
                 start = (T - self.crop_len) // 2
-
-            end = start + self.crop_len
-            video = video[start:end]   # (crop_len, H, W)
-            gt = gt[start:end]         # (crop_len,)
-
-        # (T, H, W) -> (1, T, H, W)
-        video = np.expand_dims(video, axis=0)
-        video = np.transpose(video, (1,2,3,0))
-
-        #print(f"video max: {video.max()}")
-        #print(f"video min: {video.min()}")
-        #print(f"gt max: {gt.max()}")
-        #print(f"gt min: {gt.min()}")
-
-        video = diff_normalize_data(video)
+            video = video[start:start + self.crop_len]  # (crop_len, H, W)
+            gt    = gt[start:start + self.crop_len]
+    
+        # ── 시간축 stable mask: 세그먼트 내내 nonzero인 픽셀만 유지 ──
+        # 하나라도 0인 프레임이 있으면 해당 픽셀 전체를 0으로 마스킹
+        stable_mask = np.all(video != 0, axis=0)   # (H, W) True=항상 유효
+        video = video * stable_mask[np.newaxis, :, :]  # (T, H, W)
+    
+        # ── diff_normalize ──
+        video = np.expand_dims(video, axis=0)       # (1, T, H, W)
+        video = np.transpose(video, (1, 2, 3, 0))   # (T, H, W, 1)
+        video = diff_normalize_data(video)          # (T, H, W, 1)
+    
         gt = diff_normalize_label(gt)
-
+    
         video_tensor = torch.tensor(video, dtype=torch.float32)
-        gt_tensor = torch.tensor(gt, dtype=torch.float32)
-        video_tensor = video_tensor.permute(3,0,1,2)
-        # -----------------------------
-        # normalized frame difference
-        # input shape: (C, T, H, W)
-        # -----------------------------
-
-        #print(f"video max: {video_tensor.max()}")
-        #print(f"video min: {video_tensor.min()}")
-        #print(f"gt max: {gt_tensor.max()}")
-        #print(f"gt min: {gt_tensor.min()}")
-        
+        gt_tensor    = torch.tensor(gt,    dtype=torch.float32)
+        video_tensor = video_tensor.permute(3, 0, 1, 2)  # (C, T, H, W)
+    
         return video_tensor, gt_tensor
 
 

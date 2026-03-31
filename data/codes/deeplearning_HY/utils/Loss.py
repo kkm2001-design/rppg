@@ -21,25 +21,6 @@ def kl_loss(inputs, labels):
     loss = loss.sum()
     return loss
 
-class Neg_Pearson(nn.Module):    # Pearson range [-1, 1] so if < 0, abs|loss| ; if >0, 1- loss
-    def __init__(self):
-        super(Neg_Pearson,self).__init__()
-
-    def forward(self, preds, labels):       # all variable operation
-        loss = 0
-        for i in range(preds.shape[0]):
-            sum_x = torch.sum(preds[i])                # x
-            sum_y = torch.sum(labels[i])               # y
-            sum_xy = torch.sum(preds[i]*labels[i])        # xy
-            sum_x2 = torch.sum(torch.pow(preds[i],2))  # x^2
-            sum_y2 = torch.sum(torch.pow(labels[i],2)) # y^2
-            N = preds.shape[1]
-            pearson = (N*sum_xy - sum_x*sum_y)/(torch.sqrt((N*sum_x2 - torch.pow(sum_x,2))*(N*sum_y2 - torch.pow(sum_y,2))))
-            loss += 1 - pearson
-            
-        loss = loss/preds.shape[0]
-        return loss
-
 class RhythmFormer_Loss(nn.Module): 
     def __init__(self):
         super(RhythmFormer_Loss,self).__init__()
@@ -50,7 +31,9 @@ class RhythmFormer_Loss(nn.Module):
         loss_hr = TorchLossComputer.HR_loss(pred_ppg.squeeze(-1),  labels.squeeze(-1), diff_flag=diff_flag, Fs=FS, std=3.0)
         if torch.isnan(loss_time) : 
            loss_time = 0
-
+        #print("loss_time : ",loss_time.item())
+        #print("loss_CE : ",loss_CE.item())
+        #print("loss_HR : ",loss_hr.item())
         loss = (0.2 * loss_time) + (1.0 * loss_CE) + (1.0 * loss_hr)
         return loss
 
@@ -154,10 +137,10 @@ class TorchLossComputer(object):
 
         hr_gt = torch.tensor(hr_gt-45).view(1).type(torch.long).to(torch.device('cuda'))
         return F.cross_entropy(ca, hr_gt) , kl_loss(sa , target_distribution)
-
+    '''
     @staticmethod
     def HR_loss(inputs, target,  diff_flag , Fs, std):
-        psd_gt, psd_pred, SNR, macc = calculate_metric_per_video(inputs.detach().cpu(), target.detach().cpu(), diff_flag = diff_flag, fs=Fs, hr_method='Peak')
+        psd_gt, psd_pred, SNR, macc = calculate_metric_per_video(inputs.detach().cpu(), target.detach().cpu(), diff_flag = diff_flag, fs=Fs, hr_method='FFT')
         pred_distribution = [normal_sampling(np.argmax(psd_pred), i, std) for i in range(psd_pred.size)]
         pred_distribution = [i if i > 1e-15 else 1e-15 for i in pred_distribution]
         pred_distribution = torch.Tensor(pred_distribution).to(torch.device('cuda'))
@@ -165,6 +148,38 @@ class TorchLossComputer(object):
         target_distribution = [i if i > 1e-15 else 1e-15 for i in target_distribution]
         target_distribution = torch.Tensor(target_distribution).to(torch.device('cuda'))
         return kl_loss(pred_distribution , target_distribution)
+    '''
+    @staticmethod
+    def HR_loss(inputs, target, diff_flag, Fs, std):
+        hr_label, hr_pred, SNR, macc = calculate_metric_per_video(
+            inputs.detach().cpu().numpy(),
+            target.detach().cpu().numpy(),
+            diff_flag=diff_flag, fs=Fs, hr_method='FFT'
+        )
+        # hr_label, hr_pred: BPM 단위 float (예: 72.5)
+        # bpm_range 45~150 기준 index로 변환
+        hr_pred_idx  = float(hr_pred)  - 45
+        hr_label_idx = float(hr_label) - 45
+
+        # clamp: 범위 밖이면 경계로
+        hr_pred_idx  = max(0, min(104, hr_pred_idx))
+        hr_label_idx = max(0, min(104, hr_label_idx))
+
+        pred_distribution = [
+            normal_sampling(hr_pred_idx, i, std) 
+            for i in range(105)   # 45~150 → 105개
+        ]
+        pred_distribution = [i if i > 1e-15 else 1e-15 for i in pred_distribution]
+        pred_distribution = torch.Tensor(pred_distribution).cuda()
+
+        target_distribution = [
+            normal_sampling(hr_label_idx, i, std)
+            for i in range(105)
+        ]
+        target_distribution = [i if i > 1e-15 else 1e-15 for i in target_distribution]
+        target_distribution = torch.Tensor(target_distribution).cuda()
+
+        return kl_loss(pred_distribution, target_distribution)
 
 class Neg_Pearson(nn.Module):
     """
@@ -193,3 +208,86 @@ class Neg_Pearson(nn.Module):
             
         loss = loss/preds.shape[0]
         return loss
+
+
+'''
+
+class Neg_Pearson(nn.Module):
+    def __init__(self):
+        super(Neg_Pearson, self).__init__()
+
+    def forward(self, preds, labels):
+        loss = 0
+        for i in range(preds.shape[0]):
+            # pred z-score 정규화
+            p = preds[i]
+            p = (p - p.mean()) / (p.std() + 1e-8)
+
+            l = labels[i]
+            l = (l - l.mean()) / (l.std() + 1e-8)
+
+            N      = p.shape[0]
+            sum_x  = torch.sum(p)
+            sum_y  = torch.sum(l)
+            sum_xy = torch.sum(p * l)
+            sum_x2 = torch.sum(p ** 2)
+            sum_y2 = torch.sum(l ** 2)
+
+            pearson = (N * sum_xy - sum_x * sum_y) / (
+                torch.sqrt(
+                    (N * sum_x2 - sum_x ** 2) *
+                    (N * sum_y2 - sum_y ** 2)
+                ) + 1e-8
+            )
+            loss += 1 - pearson
+
+        return loss / preds.shape[0]
+
+
+class Neg_Pearson(nn.Module):    # Pearson range [-1, 1] so if < 0, abs|loss| ; if >0, 1- loss
+    def __init__(self):
+        super(Neg_Pearson,self).__init__()
+
+    def forward(self, preds, labels):       # all variable operation
+        loss = 0
+        for i in range(preds.shape[0]):
+            sum_x = torch.sum(preds[i])                # x
+            sum_y = torch.sum(labels[i])               # y
+            sum_xy = torch.sum(preds[i]*labels[i])        # xy
+            sum_x2 = torch.sum(torch.pow(preds[i],2))  # x^2
+            sum_y2 = torch.sum(torch.pow(labels[i],2)) # y^2
+            N = preds.shape[1]
+            pearson = (N*sum_xy - sum_x*sum_y)/(torch.sqrt((N*sum_x2 - torch.pow(sum_x,2))*(N*sum_y2 - torch.pow(sum_y,2))))
+            loss += 1 - pearson
+            
+        loss = loss/preds.shape[0]
+        return loss
+
+class Neg_Pearson(nn.Module):
+    """
+    The Neg_Pearson Module is from the orignal author of Physnet.
+    Code of 'Remote Photoplethysmograph Signal Measurement from Facial Videos Using Spatio-Temporal Networks' 
+    source: https://github.com/ZitongYu/PhysNet/blob/master/NegPearsonLoss.py
+    """
+    
+    def __init__(self):
+        super(Neg_Pearson, self).__init__()
+        return
+
+
+    def forward(self, preds, labels):       
+        loss = 0
+        for i in range(preds.shape[0]):
+            sum_x = torch.sum(preds[i])               
+            sum_y = torch.sum(labels[i])             
+            sum_xy = torch.sum(preds[i]*labels[i])       
+            sum_x2 = torch.sum(torch.pow(preds[i],2))  
+            sum_y2 = torch.sum(torch.pow(labels[i],2)) 
+            N = preds.shape[1]
+            pearson = (N*sum_xy - sum_x*sum_y)/(torch.sqrt((N*sum_x2 - torch.pow(sum_x,2))*(N*sum_y2 - torch.pow(sum_y,2))))
+            loss += 1 - pearson
+            
+            
+        loss = loss/preds.shape[0]
+        return loss
+'''

@@ -25,10 +25,13 @@ from utils.dataloader import *
 
 
 data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_normalizeX'
+
 all_files = sorted(glob.glob(os.path.join(data_dir, 'final_dataset_*.h5')))
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
 train_files = all_files[:12]
+#valid_files = all_files[:1]
+#test_files = all_files[:1]
 valid_files = all_files[12:14]
 test_files = all_files[14:]
 
@@ -36,23 +39,58 @@ train_dataset = rPPGDataset(train_files, mode='train', crop_len=300)
 valid_dataset = rPPGDataset(valid_files, mode='val', crop_len=300)
 test_dataset = rPPGDataset(test_files, mode='val', crop_len=300)
 
-batch_size = 8
+batch_size = 24
+
+#train_loader = DataLoader(train_dataset, batch_size=batch_size , shuffle=True, collate_fn=collate_fn, num_workers=4)
+#valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, num_workers=4)
+#test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, num_workers=4)
 
 train_loader = DataLoader(train_dataset, batch_size=batch_size , shuffle=True,  num_workers=4)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False,  num_workers=4)
 test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
-for inputs, targets in train_loader:
+#for inputs, targets,pos_pad, pad_mask  in train_loader:
+for inputs, targets  in train_loader:
     print("\n[DataLoader Test]")
     print(f"Input Video Batch Shape: {inputs.shape}")  # 예상: [4, 1, 900, 64, 64]
     print(f"Target GT Batch Shape: {targets.shape}")   # 예상: [4, 900]
     break
 
+'''
+
+# 배치 1개
+tokens_pad, gt_batch, pos_pad, pad_mask = next(iter(train_loader))
+
+gt = gt_batch[0].numpy()      # (T,)
+fs = 30
+
+# ── 1. GT band energy ──
+b, a = butter(2, [0.75/(fs/2), 2.5/(fs/2)], btype='band')
+gt_filtered = filtfilt(b, a, gt)
+gt_ratio = np.var(gt_filtered) / (np.var(gt) + 1e-8)
+print(f'GT band energy ratio: {gt_ratio:.4f}')
+
+# ── 2. token band energy ──
+tokens  = tokens_pad[0]          # (N, T)
+valid   = ~pad_mask[0]           # (N,)
+valid_ts = tokens[valid].numpy() # (N_valid, T)
+
+ratios = []
+for i in range(min(20, len(valid_ts))):
+    ts = valid_ts[i]
+    ts_f = filtfilt(b, a, ts)
+    ratios.append(np.var(ts_f) / (np.var(ts) + 1e-8))
+
+print(f'Token band energy ratios: {[f"{r:.4f}" for r in ratios]}')
+print(f'Token band energy mean  : {np.mean(ratios):.4f}')
+
+'''
 
 # 설정 부분은 그대로 유지
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = PhysNet_padding_Encoder_Decoder_MAX().to(device) 
 #model = rPPGTransformer().to(device) 
+#criterion = RhythmFormer_Loss().to(device)
 criterion = RhythmFormer_Loss().to(device)
 lr_ = 1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
@@ -88,7 +126,3 @@ for epoch in range(num_epochs):
     if val_loss < best_val_loss:
         best_val_loss = val_loss
         torch.save(model.state_dict(), f'3dres_data_wo_ol_lr:{str(lr_)}_epoch:{str(epoch)}.pth')
-
-
-
-

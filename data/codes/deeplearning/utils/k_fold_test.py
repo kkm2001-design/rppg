@@ -22,7 +22,7 @@ def forward(model, inputs):
 # ──────────────────────────────────────────────
 # One epoch
 # ──────────────────────────────────────────────
-def train_one_epoch(model, loader, criterion, optimizer, device, fs = 20):
+def train_one_epoch(model, loader, criterion, optimizer, device, fs = 30):
     model.train()
     running_loss, running_mae, total_valid = 0.0, 0.0, 0
 
@@ -44,7 +44,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, fs = 20):
     return avg_loss, avg_mae
 
 
-def validate(model, loader, criterion, device, fs= 20):
+def validate(model, loader, criterion, device, fs= 30):
     model.eval()
     running_loss, running_mae, total_valid = 0.0, 0.0, 0
 

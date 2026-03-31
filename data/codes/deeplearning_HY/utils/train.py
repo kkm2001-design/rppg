@@ -12,10 +12,11 @@ def validate(model, loader, criterion, device, fs=30):
     total_valid_samples = 0
     main_pbar = tqdm(loader, desc="eval_segment")
     with torch.no_grad():
-        for inputs, targets in main_pbar: 
+        #for inputs, targets, pos_pad, pad_mask  in main_pbar: 
+        for inputs, targets  in main_pbar: 
             inputs, targets = inputs.to(device), targets.to(device)
             #pos_pad, pad_mask = pos_pad.to(device), pad_mask.to(device)
-            #outputs = model(inputs)
+            #outputs = model(inputs,pad_mask)
             outputs,_,_,_ = model(inputs)
             #print(f'pred shape : {outputs.shape}')
             #print(f'pred mean  : {outputs.mean().item():.6f}')
@@ -24,7 +25,7 @@ def validate(model, loader, criterion, device, fs=30):
             #print(f'pred min   : {outputs.min().item():.6f}')
             #print(f'gt mean    : {gt_batch.mean().item():.6f}')
             #print(f'gt std     : {gt_batch.std().item():.6f}')
-
+            #print(f'pred std per sample: {outputs.std(dim=-1)}')
             loss = criterion(outputs, targets, 0)
             running_loss += loss.item()
             
@@ -44,13 +45,14 @@ def train_one_epoch(model, loader, criterion, optimizer, device, fs=30):
     running_mae = 0.0
     total_valid_samples = 0
     main_pbar = tqdm(loader, desc="train_segment")
+    #for inputs, targets,pos_pad, pad_mask  in main_pbar:
     for inputs, targets in main_pbar:
         inputs, targets = inputs.to(device), targets.to(device)
         #pos_pad, pad_mask = pos_pad.to(device), pad_mask.to(device)
         
 
         optimizer.zero_grad()
-        #outputs = model(inputs)
+        #outputs = model(inputs,pad_mask)
         outputs,_,_,_ = model(inputs)
         loss = criterion(outputs, targets, 0)
         
