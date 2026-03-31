@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 import h5py
 import pandas as pd
@@ -18,7 +18,7 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=2):
 def z_norm(data):
     return (data - np.mean(data, axis=0)) / (np.std(data, axis=0) + 1e-8)
 
-def process_video_and_gt_windows(video_data, gt_ppg, sub_valid, window_size=900, max_gap_threshold=30):
+def process_video_and_gt_windows(video_data, gt_ppg, sub_valid, window_size=300, max_gap_threshold=30):
     n_windows = len(video_data) // window_size
     valid_vid_raw_list = []
     valid_gt_list = []
@@ -57,7 +57,7 @@ def process_video_and_gt_windows(video_data, gt_ppg, sub_valid, window_size=900,
                     continue
 
             # GT 전처리
-            filter_gt   = butter_bandpass_filter(win_gt, 0.75, 2.5, fs_video, order=2)
+            filter_gt   = butter_bandpass_filter(win_gt, 0.66, 2.5, fs_video, order=2)
             win_gt_norm = z_norm(filter_gt)
 
             valid_vid_raw_list.append(win_video)
@@ -81,7 +81,7 @@ people_ppg = sorted([k.replace('_20', '_') for k in people])
 
 preprocess_result_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/uv_registration_CNA'
 ppg_cut_dir           = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/ppg_cut_final'
-final_save_dir        = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier'
+final_save_dir        = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_len300'
 os.makedirs(final_save_dir, exist_ok=True)
 
 # ===== 메인 루프 =====
@@ -106,7 +106,7 @@ for sub_idx in range(len(people)):
         video_data=video_data,
         gt_ppg=ppg_downsampled,
         sub_valid=sub_valid,
-        window_size=900,
+        window_size=300,
         max_gap_threshold=30
     )
 
