@@ -26,7 +26,7 @@ def resample_ppg(input_signal, target_length):
             1, input_signal.shape[0], target_length), np.linspace(
             1, input_signal.shape[0], input_signal.shape[0]), input_signal)
 
-def process_video_and_gt_windows(video_data, gt_ppg, sub_valid, window_size=900, max_gap_threshold=30):
+def process_video_and_gt_windows(video_data, gt_ppg, sub_valid, window_size=300, max_gap_threshold=30):
     n_windows = len(video_data) // window_size
     valid_vid_raw_list = []
     valid_gt_list = []
@@ -65,9 +65,9 @@ def process_video_and_gt_windows(video_data, gt_ppg, sub_valid, window_size=900,
                     continue
 
             # GT 전처리
-            filter_gt   = butter_bandpass_filter(win_gt, 0.75, 2.5, fs_video, order=2)
-            #win_gt_norm = z_norm(filter_gt)
-            win_gt_norm = filter_gt
+            # filter_gt   = butter_bandpass_filter(win_gt, 0.66, 2.5, fs_video, order=2)
+            # #win_gt_norm = z_norm(filter_gt)
+            win_gt_norm = win_gt
 
             valid_vid_raw_list.append(win_video)
             valid_gt_list.append(win_gt_norm)
@@ -90,7 +90,7 @@ people_ppg = sorted([k.replace('_20', '_') for k in people])
 
 preprocess_result_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/uv_registration_CNA'
 ppg_cut_dir           = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/ppg_cut_final'
-final_save_dir        = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_normalizeX'
+final_save_dir        = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_len300X'
 os.makedirs(final_save_dir, exist_ok=True)
 
 # ===== 메인 루프 =====
@@ -108,14 +108,15 @@ for sub_idx in range(len(people)):
     # GT PPG 로드 + 다운샘플링 (shift 없이 길이만 맞춤)
     gt_csv_path = os.path.join(ppg_cut_dir, f'{people_ppg[sub_idx]}.csv')
     ppg_cut = pd.read_csv(gt_csv_path).values.flatten()
-    #ppg_downsampled = signal.resample(ppg_cut, len(video_data))
     ppg_downsampled = resample_ppg(ppg_cut, len(video_data))
+    ppg_znorm = z_norm(ppg_downsampled)
+
     # 윈도우 처리
     valid_vid_raw_list, valid_gt_list, discarded = process_video_and_gt_windows(
         video_data=video_data,
-        gt_ppg=ppg_downsampled,
+        gt_ppg=ppg_znorm,
         sub_valid=sub_valid,
-        window_size=900,
+        window_size=300,
         max_gap_threshold=30
     )
 

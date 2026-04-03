@@ -20,27 +20,30 @@ from utils.train import *
 from utils.dataloader import *
 from utils.models import *
 
+## 이실험으로 확인하려는 점, 1. normalization을 안하니 음수값이 없어진다 > output signal이 적당한 크기로 나오는지 2. 13번 subject를 뺏을떄 mae가 적절하게 나오는지 13번의 히스토그램상 혼자 이상해서 예를 빼는게맞는지 혹은 train에 넣기
 
-print('3dphysnettest train_files = all_files[:12] valid_files = all_files[13:15] test_files = all_files[:]')
-print('300frame / hybridloss test/ gt subjectwise test')
+print('3dphysnettest train_files = all_files[:13] valid_files = all_files[13:14] test_files = all_files[14:]')
+print('900frame / ncorloss test/ gt subjectwise test / without registration/ 13subject out')
 
-data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_len300_gtsubjectznorm'
-parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/300frame_mse0.5_ncor1.0_subjectwiseznorm'
+data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier'
+parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/withregis_without13_and_normalization_ncorlossonly_test'
 os.makedirs(parameter_save_dir, exist_ok= True)
 
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
 train_files = all_files[:12]
-valid_files = all_files[13:]
+valid_files = all_files[13:14]
+test_files = all_files[14:]
 
 train_dataset = rPPGDataset(train_files)
 valid_dataset = rPPGDataset(valid_files)
+test_dataset = rPPGDataset(test_files)
 
-batch_size = 24
+batch_size = 6
 
 train_loader = DataLoader(train_dataset, batch_size = batch_size , shuffle = True, num_workers =4)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
-#test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
 
 for inputs, targets in train_loader:
     print("\n[DataLoader Test]")
@@ -54,10 +57,10 @@ for inputs, targets in train_loader:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #model = rPPG_3D_ResNet().to(device) 
 model = PhysNet_padding_Encoder_Decoder_MAX().to(device) 
-criterion = HybridLoss(ncor_weight=1.0, mse_weight=0.5).to(device)
-lr_ = 5*1e-4
+criterion = Neg_Pearson().to(device)
+lr_ = 3*1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
-num_epochs = 200
+num_epochs = 50
 
 best_val_loss = float('inf')
 main_pbar = tqdm(range(num_epochs), desc="Total Epochs")
@@ -68,20 +71,32 @@ train_mae_list, valid_mae_list = [], []
 
 
 for epoch in main_pbar:
-    train_loss, train_mae, train_ncor, train_mse = train_one_epoch(model, train_loader, criterion, optimizer, device)
-    val_loss, val_mae, avg_ncor, avg_mse  = validate(model, valid_loader, criterion, device)
+    train_metrics = train_one_epoch(model, train_loader, criterion, optimizer, device)
+    val_metrics   = validate(model, valid_loader, criterion, device)
+    test_metrics  = validate(model, test_loader, criterion, device)
     
-    train_loss_list.append(train_loss)
-    valid_loss_list.append(val_loss)
-    train_mae_list.append(train_mae)
-    valid_mae_list.append(val_mae)
+    train_loss_list.append(train_metrics['loss'])
+    valid_loss_list.append(val_metrics['loss'])
+    train_mae_list.append(train_metrics['mae'])
+    valid_mae_list.append(val_metrics['mae'])
 
-    tqdm.write(f"Epoch [{epoch+1}/{num_epochs}] "
-               f"Train Loss: {train_loss:.4f}, MAE: {train_mae:.2f} BPM, NCorr: {train_ncor:.4f}, MSE: {train_mse:.4f} "
-               f"Val Loss: {val_loss:.4f}, MAE: {val_mae:.2f} BPM, NCorr : {avg_ncor: .4f}, MSE : {avg_mse: .4f}")
+    # 💡 HybridLoss 여부에 따라 출력 문자열 다르게 구성
+    if isinstance(criterion, HybridLoss):
+        tqdm.write(
+            f"Epoch [{epoch+1}/{num_epochs}] "
+            f"Train Loss: {train_metrics['loss']:.4f} (NCOR:{train_metrics['ncor']:.4f}, MSE:{train_metrics['mse']:.4f}), MAE: {train_metrics['mae']:.2f} | " 
+            f"Val Loss: {val_metrics['loss']:.4f} (NCOR:{val_metrics['ncor']:.4f}, MSE:{val_metrics['mse']:.4f}), MAE: {val_metrics['mae']:.2f} | "
+            f"Test Loss: {test_metrics['loss']:.4f}, MAE: {test_metrics['mae']:.2f}"
+        )
+    else:
+        tqdm.write(
+            f"Epoch [{epoch+1}/{num_epochs}] "
+            f"Train Loss: {train_metrics['loss']:.4f}, MAE: {train_metrics['mae']:.2f} | " 
+            f"Val Loss: {val_metrics['loss']:.4f}, MAE: {val_metrics['mae']:.2f} | "
+            f"Test Loss: {test_metrics['loss']:.4f}, MAE: {test_metrics['mae']:.2f}"
+        )
     
-
-    torch.save(model.state_dict(), os.path.join(parameter_save_dir,f'physent_data_wo_ol_lr:{str(lr_)}_epoch:{str(epoch)}_MAE:{val_mae: .2f}.pth'))
+    torch.save(model.state_dict(), os.path.join(parameter_save_dir, f'physent_data_wo_ol_lr:{str(lr_)}_epoch:{str(epoch)}_MAE:{val_metrics["mae"]: .2f}.pth'))
 
 
 

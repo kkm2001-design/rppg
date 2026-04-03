@@ -25,17 +25,40 @@ class RhythmFormer_Loss(nn.Module):
     def __init__(self):
         super(RhythmFormer_Loss,self).__init__()
         self.criterion_Pearson = Neg_Pearson()
-    def forward(self, pred_ppg, labels , epoch , FS=30 , diff_flag=True):    
-        loss_time = self.criterion_Pearson(pred_ppg.view(1,-1) , labels.view(1,-1))    
-        loss_CE , loss_distribution_kl = TorchLossComputer.Frequency_loss(pred_ppg.squeeze(-1),  labels.squeeze(-1), diff_flag=diff_flag, Fs=FS, std=3.0)
-        loss_hr = TorchLossComputer.HR_loss(pred_ppg.squeeze(-1),  labels.squeeze(-1), diff_flag=diff_flag, Fs=FS, std=3.0)
-        if torch.isnan(loss_time) : 
-           loss_time = 0
-        #print("loss_time : ",loss_time.item())
-        #print("loss_CE : ",loss_CE.item())
-        #print("loss_HR : ",loss_hr.item())
+    def forward(self, pred_ppg, labels, epoch, FS=30, diff_flag=True):
+        B = pred_ppg.shape[0]
+        
+        loss_time = torch.tensor(0.0).cuda()
+        loss_CE   = torch.tensor(0.0).cuda()
+        loss_hr   = torch.tensor(0.0).cuda()
+    
+        for i in range(B):
+            pred_i  = pred_ppg[i]  # (T,)
+            label_i = labels[i]    # (T,)
+    
+            # Pearson
+            loss_time = loss_time + self.criterion_Pearson(
+                pred_i.unsqueeze(0), label_i.unsqueeze(0))
+    
+            # Frequency loss: 1개씩
+            ce, _ = TorchLossComputer.Frequency_loss(
+                pred_i, label_i, diff_flag=diff_flag, Fs=FS, std=3.0)
+            loss_CE = loss_CE + ce
+    
+            # HR loss: 1개씩
+            hr = TorchLossComputer.HR_loss(
+                pred_i, label_i, diff_flag=diff_flag, Fs=FS, std=3.0)
+            loss_hr = loss_hr + hr
+    
+        loss_time = loss_time / B
+        loss_CE   = loss_CE   / B
+        loss_hr   = loss_hr   / B
+    
+        if torch.isnan(loss_time):
+            loss_time = torch.tensor(0.0).cuda()
+    
         loss = (0.2 * loss_time) + (1.0 * loss_CE) + (1.0 * loss_hr)
-        return loss
+        return loss, loss_time, loss_CE, loss_hr
 
 class TorchLossComputer(object):
     @staticmethod
@@ -137,7 +160,8 @@ class TorchLossComputer(object):
 
         hr_gt = torch.tensor(hr_gt-45).view(1).type(torch.long).to(torch.device('cuda'))
         return F.cross_entropy(ca, hr_gt) , kl_loss(sa , target_distribution)
-    '''
+
+    
     @staticmethod
     def HR_loss(inputs, target,  diff_flag , Fs, std):
         psd_gt, psd_pred, SNR, macc = calculate_metric_per_video(inputs.detach().cpu(), target.detach().cpu(), diff_flag = diff_flag, fs=Fs, hr_method='FFT')
@@ -148,7 +172,9 @@ class TorchLossComputer(object):
         target_distribution = [i if i > 1e-15 else 1e-15 for i in target_distribution]
         target_distribution = torch.Tensor(target_distribution).to(torch.device('cuda'))
         return kl_loss(pred_distribution , target_distribution)
+
     '''
+
     @staticmethod
     def HR_loss(inputs, target, diff_flag, Fs, std):
         hr_label, hr_pred, SNR, macc = calculate_metric_per_video(
@@ -180,6 +206,7 @@ class TorchLossComputer(object):
         target_distribution = torch.Tensor(target_distribution).cuda()
 
         return kl_loss(pred_distribution, target_distribution)
+    '''
 
 class Neg_Pearson(nn.Module):
     """
@@ -194,7 +221,10 @@ class Neg_Pearson(nn.Module):
 
 
     def forward(self, preds, labels):       
-        loss = 0
+        loss = 0.0
+        #preds_norm = (preds - preds.mean(dim=-1, keepdim=True)) / \
+        #        (preds.std(dim=-1, keepdim=True) + 1e-6)
+
         for i in range(preds.shape[0]):
             sum_x = torch.sum(preds[i])               
             sum_y = torch.sum(labels[i])             
@@ -202,12 +232,14 @@ class Neg_Pearson(nn.Module):
             sum_x2 = torch.sum(torch.pow(preds[i],2))  
             sum_y2 = torch.sum(torch.pow(labels[i],2)) 
             N = preds.shape[1]
-            pearson = (N*sum_xy - sum_x*sum_y)/(torch.sqrt((N*sum_x2 - torch.pow(sum_x,2))*(N*sum_y2 - torch.pow(sum_y,2))))
+            numer = (N*sum_xy - sum_x*sum_y)
+            denom = (torch.sqrt((N*sum_x2 - torch.pow(sum_x,2))*(N*sum_y2 - torch.pow(sum_y,2))))
+            pearson = numer/denom
             loss += 1 - pearson
             
             
         loss = loss/preds.shape[0]
-        return loss
+        return loss, numer, denom
 
 
 '''

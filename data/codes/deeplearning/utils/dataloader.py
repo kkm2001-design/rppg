@@ -41,7 +41,7 @@ class rPPGDataset(Dataset):
         """
         if self.norm_type == 'fixed':
             # [0, 1] → [-1, 1]
-            return (video - 0.5) / 0.5
+            return (video  - 0.5) / 0.5
  
         elif self.norm_type == 'zscore':
             # window 전체 픽셀 기준 z-norm
@@ -59,12 +59,14 @@ class rPPGDataset(Dataset):
             video = f['video'][window_idx]   # (T, H, W), float32, [0, 1]
             gt    = f['gt_ppg'][window_idx]  # (T,), float64, already z-normed
  
-        video = self._normalize_video(video)   # (T, H, W)
+        #video = self._normalize_video(video)   # (T, H, W)
+        #video = video / 255.0
         video = np.expand_dims(video, axis=0)  # (1, T, H, W)
+        #gt = gt / 3
  
         video_tensor = torch.tensor(video, dtype=torch.float32)
         gt_tensor    = torch.tensor(gt,    dtype=torch.float32)
-        # gt_ppg는 이미 전처리 완료 → 추가 처리 없음
+
 
         # print(f'video shape : {video_tensor.shape}')
         # print(f"video max: {video_tensor.max()}")

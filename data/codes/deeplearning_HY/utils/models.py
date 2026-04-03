@@ -16,49 +16,49 @@ class PhysNet_padding_Encoder_Decoder_MAX(nn.Module):
         self.ConvBlock1 = nn.Sequential(
             nn.Conv3d(1, 16, [1, 5, 5], stride=1, padding=[0, 2, 2]),
             nn.BatchNorm3d(16),
-            nn.ReLU(inplace=True),
+            nn.ELU(inplace=True),
         )
 
         self.ConvBlock2 = nn.Sequential(
             nn.Conv3d(16, 32, [3, 3, 3], stride=1, padding=1),
             nn.BatchNorm3d(32),
-            nn.ReLU(inplace=True),
+            nn.ELU(inplace=True),
         )
         self.ConvBlock3 = nn.Sequential(
             nn.Conv3d(32, 64, [3, 3, 3], stride=1, padding=1),
             nn.BatchNorm3d(64),
-            nn.ReLU(inplace=True),
+            nn.ELU(inplace=True),
         )
 
         self.ConvBlock4 = nn.Sequential(
             nn.Conv3d(64, 64, [3, 3, 3], stride=1, padding=1),
             nn.BatchNorm3d(64),
-            nn.ReLU(inplace=True),
+            nn.ELU(inplace=True),
         )
         self.ConvBlock5 = nn.Sequential(
             nn.Conv3d(64, 64, [3, 3, 3], stride=1, padding=1),
             nn.BatchNorm3d(64),
-            nn.ReLU(inplace=True),
+            nn.ELU(inplace=True),
         )
         self.ConvBlock6 = nn.Sequential(
             nn.Conv3d(64, 64, [3, 3, 3], stride=1, padding=1),
             nn.BatchNorm3d(64),
-            nn.ReLU(inplace=True),
+            nn.ELU(inplace=True),
         )
         self.ConvBlock7 = nn.Sequential(
             nn.Conv3d(64, 64, [3, 3, 3], stride=1, padding=1),
             nn.BatchNorm3d(64),
-            nn.ReLU(inplace=True),
+            nn.ELU(inplace=True),
         )
         self.ConvBlock8 = nn.Sequential(
             nn.Conv3d(64, 64, [3, 3, 3], stride=1, padding=1),
             nn.BatchNorm3d(64),
-            nn.ReLU(inplace=True),
+            nn.ELU(inplace=True),
         )
         self.ConvBlock9 = nn.Sequential(
             nn.Conv3d(64, 64, [3, 3, 3], stride=1, padding=1),
             nn.BatchNorm3d(64),
-            nn.ReLU(inplace=True),
+            nn.ELU(inplace=True),
         )
 
         self.upsample = nn.Sequential(
@@ -151,49 +151,49 @@ class PhysNet_padding_Encoder_Decoder_MAX(nn.Module):
 
         self.ConvBlock1 = nn.Sequential(
             nn.Conv3d(1, 16, [1, 5, 5], stride=1, padding=[0, 2, 2]),
-            nn.InstanceNorm3d(16),
+            nn.InstanceNorm3d(16,affine=True),
             nn.ReLU(inplace=True),
         )
 
         self.ConvBlock2 = nn.Sequential(
             nn.Conv3d(16, 32, [3, 3, 3], stride=1, padding=1),
-            nn.InstanceNorm3d(32),
+            nn.InstanceNorm3d(32,affine=True),
             nn.ReLU(inplace=True),
         )
         self.ConvBlock3 = nn.Sequential(
             nn.Conv3d(32, 64, [3, 3, 3], stride=1, padding=1),
-            nn.InstanceNorm3d(64),
+            nn.InstanceNorm3d(64,affine=True),
             nn.ReLU(inplace=True),
         )
 
         self.ConvBlock4 = nn.Sequential(
             nn.Conv3d(64, 64, [3, 3, 3], stride=1, padding=1),
-            nn.InstanceNorm3d(64),
+            nn.InstanceNorm3d(64,affine=True),
             nn.ReLU(inplace=True),
         )
         self.ConvBlock5 = nn.Sequential(
             nn.Conv3d(64, 64, [3, 3, 3], stride=1, padding=1),
-            nn.InstanceNorm3d(64),
+            nn.InstanceNorm3d(64,affine=True),
             nn.ReLU(inplace=True),
         )
         self.ConvBlock6 = nn.Sequential(
             nn.Conv3d(64, 64, [3, 3, 3], stride=1, padding=1),
-            nn.InstanceNorm3d(64),
+            nn.InstanceNorm3d(64,affine=True),
             nn.ReLU(inplace=True),
         )
         self.ConvBlock7 = nn.Sequential(
             nn.Conv3d(64, 64, [3, 3, 3], stride=1, padding=1),
-            nn.InstanceNorm3d(64),
+            nn.InstanceNorm3d(64,affine=True),
             nn.ReLU(inplace=True),
         )
         self.ConvBlock8 = nn.Sequential(
             nn.Conv3d(64, 64, [3, 3, 3], stride=1, padding=1),
-            nn.InstanceNorm3d(64),
+            nn.InstanceNorm3d(64,affine=True),
             nn.ReLU(inplace=True),
         )
         self.ConvBlock9 = nn.Sequential(
             nn.Conv3d(64, 64, [3, 3, 3], stride=1, padding=1),
-            nn.InstanceNorm3d(64),
+            nn.InstanceNorm3d(64,affine=True),
             nn.ReLU(inplace=True),
         )
 

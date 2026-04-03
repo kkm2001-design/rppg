@@ -28,8 +28,11 @@ def diff_normalize_data(data):
     if nonzero_mask.sum() > 0:
         std = np.std(diffnormalized_data[nonzero_mask])
         std = max(std, 1e-6)
+        if std==1e-6:
+            print("std check")
     else:
         std = 1.0
+        print("std check")
     #diffnormalized_data = diffnormalized_data / np.std(diffnormalized_data)
     diffnormalized_data = diffnormalized_data / std
     diffnormalized_data = np.append(diffnormalized_data, diffnormalized_data_padding, axis=0)
@@ -45,56 +48,60 @@ def diff_normalize_label(label):
     diffnormalized_label[np.isnan(diffnormalized_label)] = 0
     return diffnormalized_label
 
-# data loading
-class rPPGDataset(Dataset) :
-    def __init__(self, h5_file_paths, mode='train', crop_len=150) : 
+class rPPGDataset(Dataset):
+    def __init__(self, h5_file_paths, mode='train', crop_len=300):
         self.data_info = []
         self.crop_len = crop_len
         self.mode = mode
 
-        for path in h5_file_paths :
-            with h5py.File(path, 'r', locking=False) as f :
+        for path in h5_file_paths:
+            with h5py.File(path, 'r', locking=False) as f:
                 num_windows = f['video'].shape[0]
-                for i in range(num_windows) :
-                    self.data_info.append((path, i))
-        
-    def __len__(self) : ## len(train_dataset) 실행시 train_dataset.__len__() 이 실행됨
-        return(len(self.data_info))
+                T = f['video'].shape[1]  # 900
 
+                for i in range(num_windows):
+                    if self.mode == 'train':
+                        # 기존과 동일: 세그먼트 단위 등록
+                        self.data_info.append((path, i, None))
+                    else:
+                        # val/test: non-overlap 3구간 등록
+                        n_splits = T // crop_len  # 900 // 300 = 3
+                        for s in range(n_splits):
+                            start = s * crop_len
+                            self.data_info.append((path, i, start))
+                            
+    def __len__(self) : ## len(train_dataset) 실행시 train_dataset.__len__() 이 실행됨
+
+        return(len(self.data_info))
     def __getitem__(self, idx):
-        file_path, window_idx = self.data_info[idx]
-    
+        file_path, window_idx, start = self.data_info[idx]
+
         with h5py.File(file_path, 'r', locking=False) as f:
-            video = f['video'][window_idx].astype(np.float32)  # (T, H, W)
-            gt    = f['gt_ppg'][window_idx].astype(np.float32) # (T,)
-    
-        T = video.shape[0]
-    
-        # ── temporal crop ──
-        if self.crop_len is not None and self.crop_len < T:
-            if self.mode == 'train':
-                start = np.random.randint(0, T - self.crop_len + 1)
+            if start is None:
+                # train: 전체 로드 후 랜덤 crop
+                video = f['video'][window_idx].astype(np.float32)
+                gt    = f['gt_ppg'][window_idx].astype(np.float32)
+                T = video.shape[0]
+                s = np.random.randint(0, T - self.crop_len + 1)
+                video = video[s:s + self.crop_len]
+                gt    = gt[s:s + self.crop_len]
             else:
-                start = (T - self.crop_len) // 2
-            video = video[start:start + self.crop_len]  # (crop_len, H, W)
-            gt    = gt[start:start + self.crop_len]
-    
-        # ── 시간축 stable mask: 세그먼트 내내 nonzero인 픽셀만 유지 ──
-        # 하나라도 0인 프레임이 있으면 해당 픽셀 전체를 0으로 마스킹
-        stable_mask = np.all(video != 0, axis=0)   # (H, W) True=항상 유효
-        video = video * stable_mask[np.newaxis, :, :]  # (T, H, W)
-    
-        # ── diff_normalize ──
-        video = np.expand_dims(video, axis=0)       # (1, T, H, W)
-        video = np.transpose(video, (1, 2, 3, 0))   # (T, H, W, 1)
-        video = diff_normalize_data(video)          # (T, H, W, 1)
-    
-        gt = diff_normalize_label(gt)
-    
-        video_tensor = torch.tensor(video, dtype=torch.float32)
+                # val/test: 고정 구간 슬라이싱
+                video = f['video'][window_idx, start:start+self.crop_len].astype(np.float32)
+                gt    = f['gt_ppg'][window_idx, start:start+self.crop_len].astype(np.float32)
+
+        # 이하 기존과 동일
+        stable_mask = np.all(video != 0, axis=0)
+        video = video * stable_mask[np.newaxis, :, :]
+
+        video = np.expand_dims(video, axis=0)
+        video = np.transpose(video, (1, 2, 3, 0))
+        video = diff_normalize_data(video)
+        gt    = diff_normalize_label(gt)
+
+        video_tensor = torch.tensor(video, dtype=torch.float32).permute(3, 0, 1, 2)
         gt_tensor    = torch.tensor(gt,    dtype=torch.float32)
-        video_tensor = video_tensor.permute(3, 0, 1, 2)  # (C, T, H, W)
-    
+
         return video_tensor, gt_tensor
 
 
