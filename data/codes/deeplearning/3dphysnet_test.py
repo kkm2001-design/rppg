@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]='4'
+os.environ["CUDA_VISIBLE_DEVICES"]='0'
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 import h5py
 import torch
@@ -20,18 +20,18 @@ from utils.train import *
 from utils.dataloader import *
 from utils.models import *
 
-## 이실험으로 확인하려는 점, 1. normalization을 안하니 음수값이 없어진다 > output signal이 적당한 크기로 나오는지 2. 13번 subject를 뺏을떄 mae가 적절하게 나오는지 13번의 히스토그램상 혼자 이상해서 예를 빼는게맞는지 혹은 train에 넣기
+##  2. 13번 subject를 뺏을떄 mae가 적절하게 나오는지 13번의 히스토그램상 혼자 이상해서 예를 빼는게맞는지 혹은 train에 넣기
 
-print('3dphysnettest train_files = all_files[:13] valid_files = all_files[13:14] test_files = all_files[14:]')
-print('900frame / ncorloss test/ gt subjectwise test / without registration/ 13subject out')
+print('3dphysnettest train_files = all_files[4~15 without 12] valid_files = all_files[:2] test_files = all_files[2:4]')
+print('900frame / ncorloss test/ gt subjectwise test / with registration/ 13subject in train/ valid, test set changed ')
 
 data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier'
-parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/withregis_without13_and_normalization_ncorlossonly_test'
+parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/withregis_13intrain_and_normalization_ncorlossonly_sliceloss_test2'
 os.makedirs(parameter_save_dir, exist_ok= True)
 
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
-train_files = all_files[:12]
+train_files = all_files[:13]
 valid_files = all_files[13:14]
 test_files = all_files[14:]
 

@@ -1,76 +1,82 @@
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
-os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 import torch
-import glob
-from utils.dataloader import rPPGDataset
-from utils.k_fold_test import *
-from utils.models import *
+import torch.nn as nn 
+from torch.utils.data import Dataset, DataLoader
+import numpy as np
+from utils.utils_sig import calculate_batch_mae
+from utils.Loss import *
 
-model_select = PhysNet_padding_Encoder_Decoder_MAX
-
-#model_select = rPPG_3D_ResNet   # 클래스 자체를 변수에 할당 (인스턴스 생성 아님)
-#model_select                     # <class 'utils.models.rPPG_3D_ResNet'>
-#model_select()                   # 이때 인스턴스 생성 (괄호 붙일 때)
-
-# ──────────────────────────────────────────────
-# 경로 설정
-# ──────────────────────────────────────────────
-DATA_DIR   = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/IMVIA-NIR_dl_data' ############################## dl_data 불러오는 경로
-PIC_DIR    = f'/home/son/orientation-uv-rppg/data/pics/IMVIA-NIR/{model_select.__name__}/LOSO/scheduler'       ################################# loss curve 사진 저장 경로 
-PARAM_DIR  = f'/home/son/orientation-uv-rppg/data/codes/deeplearning/parameters_save/{model_select.__name__}/IMVIA-NIR/LOSO/scheduler'  ################################ best parameter 저장 경로
-DEVICE     = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-# ──────────────────────────────────────────────
-# subject → file 매핑 구성
-# ──────────────────────────────────────────────
-subject_ids = [i for i in range(1, 21)]
-print(f'  MODEL : {model_select}')
-subject_file_map = {}
-for sid in subject_ids:
-    files = sorted(glob.glob(os.path.join(DATA_DIR, f'{sid}_uv_windowed.h5')))
-    if files:
-        subject_file_map[sid] = files
-
-print("Subject-File map:")
-for k, v in subject_file_map.items():
-    print(f"  {k}: {[os.path.basename(f) for f in v]}")
-print(f"총 subject 수: {len(subject_file_map)}")
+def validate(model, loader, criterion, device, fs=30):
+    model.eval()
+    running_loss = 0.0
+    running_mae = 0.0
+    running_ncor = 0.0   
+    running_ce  = 0.0
+    running_hr  = 0.0
+    total_valid_samples = 0
+    
+    with torch.no_grad():
+        for inputs, targets in loader: 
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs, _, _, _ = model(inputs)
 
 
+                
+            running_loss += loss.item()
+            
+            batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs)
+            running_mae += batch_mae_sum
+            total_valid_samples += valid_count
+            
+    avg_loss = running_loss / len(loader)
+    avg_mae = running_mae / total_valid_samples if total_valid_samples > 0 else 0.0
+    
+    # 💡 결과를 딕셔너리로 묶어서 반환
+    metrics = {'loss': avg_loss, 'mae': avg_mae}
+
+    return metrics
 
 
+def train_one_epoch(model, loader, criterion, optimizer, device, fs=30):
+    model.train()
+    running_loss = 0.0
+    running_mae = 0.0
+    running_ncor = 0.0   
+    running_mse  = 0.0   
+    total_valid_samples = 0
+    
+    
+    for inputs, targets in loader:
+        inputs, targets = inputs.to(device), targets.to(device)
+        
+        optimizer.zero_grad()
+        outputs, _, _, _ = model(inputs)
 
-results = run_kfold(
-    model_fn         = lambda: model_select(frames=128),
-    subject_file_map = subject_file_map,
-    Dataset_cls      = rPPGDataset,
-    norm_type        = 'fixed',
-    device           = DEVICE,
-    num_epochs       = 100,
-    batch_size       = 8,
-    lr               = 5*1e-4,
-    pic_dir          = PIC_DIR,
-    param_dir        = PARAM_DIR,
-    tag              = 'phynet_fixed_3*1e-5~1e-6_LOSO',
-    k                = 10
-)
+        
+        
+        # 💡 분기문 처리
+        if is_hybrid:
+            loss, loss_ncor, loss_mse = criterion(outputs, targets)
+            running_ncor += loss_ncor.item()
+            running_mse += loss_mse.item()
+        else:
+            loss = criterion(outputs, targets)
+        
+        loss.backward()
+        optimizer.step()
+        
+        running_loss += loss.item()
+        
+        batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs)
+        running_mae += batch_mae_sum
+        total_valid_samples += valid_count
 
-# ──────────────────────────────────────────────
-# 실험 2: PhysNet + zscore norm + LOSO  (비교)
-# 실험 1 결과 확인 후 주석 해제
-# ──────────────────────────────────────────────
-# results = run_kfold(
-#     model_fn         = lambda: PhysNet_padding_Encoder_Decoder_MAX(frames=300),
-#     subject_file_map = subject_file_map,
-#     Dataset_cls      = rPPGDataset,
-#     norm_type        = 'zscore',
-#     device           = DEVICE,
-#     num_epochs       = 100,
-#     batch_size       = 8,
-#     lr               = 1e-4,
-#     pic_dir          = PIC_DIR,
-#     param_dir        = PARAM_DIR,
-#     tag              = 'physnet_zscore_LOSO',
-#     k                = None,
-# )
+    avg_loss = running_loss / len(loader)
+    avg_mae = running_mae / total_valid_samples if total_valid_samples > 0 else 0.0
+    
+    # 💡 결과를 딕셔너리로 묶어서 반환
+    metrics = {'loss': avg_loss, 'mae': avg_mae}
+    if is_hybrid:
+        metrics['ncor'] = running_ncor / len(loader)
+        metrics['mse'] = running_mse / len(loader)
+        
+    return metrics

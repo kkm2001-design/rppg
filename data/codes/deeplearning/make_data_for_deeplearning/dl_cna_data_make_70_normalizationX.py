@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 import h5py
 import pandas as pd
@@ -116,7 +116,7 @@ for sub_idx in range(len(people)):
         video_data=video_data,
         gt_ppg=ppg_znorm,
         sub_valid=sub_valid,
-        window_size=300,
+        window_size=900,
         max_gap_threshold=30
     )
 

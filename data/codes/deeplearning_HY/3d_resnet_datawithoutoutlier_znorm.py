@@ -95,7 +95,7 @@ model = PhysNet_padding_Encoder_Decoder_MAX().to(device)
 #model = rPPGTransformer().to(device) 
 #criterion = RhythmFormer_Loss().to(device)
 criterion = Neg_Pearson().to(device)
-lr_ = 1e-4
+lr_ = 1e-2
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
 num_epochs = 50
 

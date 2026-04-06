@@ -35,8 +35,8 @@ def validate(model, loader, criterion, device, fs=30):
             #print(f'pred std per sample: {outputs.std(dim=-1)}')
 
             loss,numer,denom = criterion(outputs, targets)
-            print(f"loss: {loss.item():.4f}, numer: {numer.item():.4f}, denom: {denom.item():.4f}")
-            print(f"pred std: {outputs.std(dim=-1).mean().item():.6f}")
+            #print(f"loss: {loss.item():.4f}, numer: {numer.item():.4f}, denom: {denom.item():.4f}")
+            #print(f"pred std: {outputs.std(dim=-1).mean().item():.6f}")
             #loss,time,CE,HR = criterion(outputs, targets, 0)
             running_loss += loss.item()
             running_denom += denom.item()
