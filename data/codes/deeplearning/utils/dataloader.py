@@ -8,7 +8,7 @@ import numpy as np
 import glob
 import sys
 from tqdm import tqdm 
-from utils.utils_sig import get_sig
+from utils.utils_sig import get_sig, z_norm
 
 
 # data loading
@@ -58,7 +58,7 @@ class rPPGDataset(Dataset):
         with h5py.File(file_path, 'r', locking=False) as f:
             video = f['video'][window_idx]   # (T, H, W), float32, [0, 1]
             gt    = f['gt_ppg'][window_idx]  # (T,), float64, already z-normed
- 
+            hr    = f['hr'][window_idx]
         #video = self._normalize_video(video)   # (T, H, W)
         #video = video / 255.0
         video = np.expand_dims(video, axis=0)  # (1, T, H, W)
@@ -66,7 +66,7 @@ class rPPGDataset(Dataset):
  
         video_tensor = torch.tensor(video, dtype=torch.float32)
         gt_tensor    = torch.tensor(gt,    dtype=torch.float32)
-
+        hr_tensor    = torch.tensor(hr,    dtype=torch.float32)
 
         # print(f'video shape : {video_tensor.shape}')
         # print(f"video max: {video_tensor.max()}")
@@ -74,7 +74,7 @@ class rPPGDataset(Dataset):
         # print(f"gt max: {gt_tensor.max()}")
         # print(f"gt min: {gt_tensor.min()}")
  
-        return video_tensor, gt_tensor
+        return video_tensor, gt_tensor, hr_tensor
 
 
 class rPPGDataset_1D(Dataset) :

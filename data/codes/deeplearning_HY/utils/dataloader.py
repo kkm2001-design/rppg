@@ -24,17 +24,17 @@ def diff_normalize_data(data):
 
     diffnormalized_data = np.clip(diffnormalized_data, -1.0, 1.0)
     # 0이 아닌 픽셀만으로 std 계산
-    nonzero_mask = diffnormalized_data != 0
-    if nonzero_mask.sum() > 0:
-        std = np.std(diffnormalized_data[nonzero_mask])
-        std = max(std, 1e-6)
-        if std==1e-6:
-            print("std check")
-    else:
-        std = 1.0
-        print("std check")
-    #diffnormalized_data = diffnormalized_data / np.std(diffnormalized_data)
-    diffnormalized_data = diffnormalized_data / std
+    #nonzero_mask = diffnormalized_data != 0
+    #if nonzero_mask.sum() > 0:
+    #    std = np.std(diffnormalized_data[nonzero_mask])
+    #    std = max(std, 1e-6)
+    #    if std==1e-6:
+    #        print("std check")
+    #else:
+    #    std = 1.0
+    #    print("std check")
+    diffnormalized_data = diffnormalized_data / np.std(diffnormalized_data)
+    #diffnormalized_data = diffnormalized_data / std
     diffnormalized_data = np.append(diffnormalized_data, diffnormalized_data_padding, axis=0)
     diffnormalized_data[np.isnan(diffnormalized_data)] = 0
     return diffnormalized_data

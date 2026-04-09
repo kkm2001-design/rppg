@@ -122,7 +122,7 @@ def ppg_to_window(ppg, fail_index, window_size=900, lowcut=0.75, highcut=2.5) :
 
 
 
-def hr_fft(sig, fs, harmonics_removal=True, lowcut=0.75, highcut=2.5):
+def hr_fft(sig, fs, harmonics_removal=True, lowcut=0.66, highcut=2.5):
     # get heart rate by FFT
     # return both heart rate and PSD
 
@@ -130,7 +130,6 @@ def hr_fft(sig, fs, harmonics_removal=True, lowcut=0.75, highcut=2.5):
     sig = sig * signal.windows.hann(sig.shape[0]) # 양사이드 0처리
     sig_f = np.abs(fft(sig))
     
-    # 0.75, 2.5 하드코딩 되어있던 부분을 인자로 교체
     low_idx = np.round(lowcut / fs * sig.shape[0]).astype('int') 
     high_idx = np.round(highcut / fs * sig.shape[0]).astype('int') 
     

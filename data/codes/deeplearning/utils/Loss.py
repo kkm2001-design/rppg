@@ -28,7 +28,7 @@ class Neg_Pearson(nn.Module):
             sum_x2 = torch.sum(torch.pow(preds[i],2))  
             sum_y2 = torch.sum(torch.pow(labels[i],2)) 
             N = preds.shape[1]
-            pearson = (N*sum_xy - sum_x*sum_y)/(torch.sqrt((N*sum_x2 - torch.pow(sum_x,2))*(N*sum_y2 - torch.pow(sum_y,2))))
+            pearson = (N*sum_xy - sum_x*sum_y)/(torch.sqrt((N*sum_x2 - torch.pow(sum_x,2))*(N*sum_y2 - torch.pow(sum_y,2)))+ 1e-8)
             loss += 1 - pearson
             
             
@@ -77,7 +77,7 @@ def kl_loss(inputs, labels):
     loss = criterion(torch.log(inputs + 1e-7), labels)
     return loss
 
-class TorchLossComputer(object):
+class physformerLoss(object):
     
     @staticmethod
     def compute_complex_absolute_given_k(output, k, N):
@@ -126,7 +126,7 @@ class TorchLossComputer(object):
         k = feasible_bpm / unit_per_hz
 
         # 반환 Shape: (B, K)
-        return TorchLossComputer.compute_complex_absolute_given_k(output, k, N)
+        return physformerLoss.compute_complex_absolute_given_k(output, k, N)
 
     @staticmethod
     def cross_entropy_power_spectrum_DLDL_softmax2(inputs, target, Fs, std=1.0):
@@ -140,7 +140,7 @@ class TorchLossComputer(object):
         B = inputs.shape[0]
         device = inputs.device
         
-        # 탐색할 주파수 대역 (예: 40~180 BPM, 총 140칸)
+        # 탐색할 주파수 대역 (예: 40~150 BPM, 총 110칸)
         bpm_range = torch.arange(40, 150, dtype=torch.float, device=device)
         K = bpm_range.shape[0]
 
@@ -153,7 +153,7 @@ class TorchLossComputer(object):
         target_distribution = torch.clamp(target_distribution, min=1e-15)
 
         # 2. 푸리에 변환 엔진 가동 (Logit 반환): (B, K)
-        ca = TorchLossComputer.complex_absolute(inputs, Fs, bpm_range)
+        ca = physformerLoss.complex_absolute(inputs, Fs, bpm_range)
         
         # 3. KL Loss 계산 (ca를 임시로 확률로 변환)
         fre_distribution = ca / torch.sum(ca, dim=-1, keepdim=True)
@@ -183,7 +183,7 @@ class TorchLossComputer(object):
         bpm_range = torch.arange(40, 150, dtype=torch.float, device=device)
 
         # ca Shape: (B, K)
-        ca = TorchLossComputer.complex_absolute(inputs, Fs, bpm_range)
+        ca = physformerLoss.complex_absolute(inputs, Fs, bpm_range)
 
         # whole_max_idx Shape: (B,)
         _, whole_max_idx = ca.max(dim=-1)

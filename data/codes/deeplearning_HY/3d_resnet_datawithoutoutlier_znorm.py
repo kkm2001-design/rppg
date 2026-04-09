@@ -1,7 +1,7 @@
 import os
 # torch import 전에 반드시 실행
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID" 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 
 import h5py
@@ -24,14 +24,14 @@ from utils.train import *
 from utils.dataloader_onesubject import *
 
 
-data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_normalizeX'
+data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_normalizeX_filtered_handcraft'
 
 all_files = sorted(glob.glob(os.path.join(data_dir, 'final_dataset_*.h5')))
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
-train_files = all_files[:1]
-valid_files = all_files[:1]
-test_files = all_files[:1]
+train_files = all_files[4:5]
+valid_files = all_files[4:5]
+test_files = all_files[4:5]
 #valid_files = all_files[12:14]
 #test_files = all_files[14:]
 
