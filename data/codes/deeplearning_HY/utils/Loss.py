@@ -14,7 +14,8 @@ def normal_sampling(mean, label_k, std):
     return math.exp(-(label_k-mean)**2/(2*std**2))/(math.sqrt(2*math.pi)*std)
 
 def kl_loss(inputs, labels):
-    criterion = nn.KLDivLoss(reduce=False)
+    #criterion = nn.KLDivLoss(reduce=False)
+    criterion = nn.KLDivLoss(reduction='none')  # ← 수정
     outputs = torch.log(inputs)
     loss = criterion(outputs, labels)
     #loss = loss.sum()/loss.shape[0]
@@ -24,7 +25,8 @@ def kl_loss(inputs, labels):
 class RhythmFormer_Loss(nn.Module): 
     def __init__(self):
         super(RhythmFormer_Loss,self).__init__()
-        self.criterion_Pearson = Neg_Pearson()
+        self.criterion_Pearson = Neg_Pearson_Freq()
+
     def forward(self, pred_ppg, labels, epoch, FS=30, diff_flag=True):
         B = pred_ppg.shape[0]
         
@@ -222,8 +224,8 @@ class Neg_Pearson(nn.Module):
 
     def forward(self, preds, labels):       
         loss = 0.0
-        #preds_norm = (preds - preds.mean(dim=-1, keepdim=True)) / \
-        #        (preds.std(dim=-1, keepdim=True) + 1e-6)
+        preds_norm = (preds - preds.mean(dim=-1, keepdim=True)) / \
+                (preds.std(dim=-1, keepdim=True) + 1e-6)
 
         for i in range(preds.shape[0]):
             sum_x = torch.sum(preds[i])               
@@ -239,9 +241,51 @@ class Neg_Pearson(nn.Module):
             
             
         loss = loss/preds.shape[0]
-        return loss, numer, denom
+        return loss
+
+def bandpass_fft(x, fs=30, low=0.7, high=4.0):
+    """
+    x: (B, T) tensor, gradient 흐름 유지
+    """
+    T = x.shape[-1]
+    
+    # FFT
+    X = torch.fft.rfft(x, dim=-1)          # (B, T//2+1) complex
+    freqs = torch.fft.rfftfreq(T, d=1.0/fs).to(x.device)  # Hz
+    
+    # 주파수 마스크 (hard mask → gradient 차단 없음, 마스크 자체는 상수)
+    mask = ((freqs >= low) & (freqs <= high)).float()  # (T//2+1,)
+    
+    # 마스크 적용 후 IFFT
+    X_filtered = X * mask                  # broadcast: (B, T//2+1)
+    x_filtered = torch.fft.irfft(X_filtered, n=T, dim=-1)  # (B, T)
+    
+    return x_filtered
 
 
+class Neg_Pearson_Freq(nn.Module):
+    def __init__(self, fs=30, low=0.66, high=4.0):
+        super().__init__()
+        self.fs   = fs
+        self.low  = low
+        self.high = high
+
+    def forward(self, pred, gt):
+        # pred, gt: (B, T)
+        pred_f = bandpass_fft(pred, self.fs, self.low, self.high)
+        gt_f   = bandpass_fft(gt,   self.fs, self.low, self.high)
+
+        # Neg Pearson
+        pred_m = pred_f - pred_f.mean(dim=-1, keepdim=True)
+        gt_m   = gt_f   - gt_f.mean(dim=-1,   keepdim=True)
+
+        numer  = (pred_m * gt_m).sum(dim=-1)
+        denom  = torch.sqrt(
+            (pred_m**2).sum(dim=-1) * (gt_m**2).sum(dim=-1)
+        ).clamp(min=1e-8)
+
+        r = numer / denom          # (B,)
+        return (-r).mean()
 '''
 
 class Neg_Pearson(nn.Module):

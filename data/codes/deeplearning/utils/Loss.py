@@ -141,7 +141,7 @@ class physformerLoss(object):
         device = inputs.device
         
         # 탐색할 주파수 대역 (예: 40~150 BPM, 총 110칸)
-        bpm_range = torch.arange(40, 150, dtype=torch.float, device=device)
+        bpm_range = torch.arange(40, 151, dtype=torch.float, device=device)
         K = bpm_range.shape[0]
 
         # 1. GPU 브로드캐스팅으로 가우시안 정답 분포 생성: (B, 1) & (1, K) -> (B, K)

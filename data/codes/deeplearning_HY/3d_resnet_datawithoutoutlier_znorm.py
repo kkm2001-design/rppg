@@ -1,7 +1,7 @@
 import os
 # torch import 전에 반드시 실행
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID" 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 
 import h5py
@@ -12,7 +12,8 @@ import numpy as np
 import glob
 import sys
 from tqdm import tqdm 
-from utils.models import *
+#from utils.models import *
+from utils.model_transformer import *
 import argparse, os
 import random
 import math
@@ -21,19 +22,45 @@ from torch import nn
 from utils.utils_sig import *
 from utils.Loss import *
 from utils.train import *
-from utils.dataloader_onesubject import *
+from utils.dataloader import *
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+def worker_init_fn(worker_id):
+    worker_seed = SEED + worker_id  # worker마다 고유 시드
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 
+
+# ── 설정 (이름에 반영할 하이퍼파라미터 한곳에 모음) ──
+SEED = 22
+set_seed(SEED)
+
+
+MODEL_NAME = 'rPPGTransformer'   # 'PhysNet' 등으로 변경
+LR         = 1e-2
+WD         = 1e-2                # AdamW weight decay
+CROP_LEN   = 300
+BATCH_SIZE = 4
+NUM_EPOCHS = 30
+
+# ── DataLoader에 worker_init_fn 추가 ──
 data_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_normalizeX_filtered_handcraft'
 
 all_files = sorted(glob.glob(os.path.join(data_dir, 'final_dataset_*.h5')))
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
-train_files = all_files[4:5]
-valid_files = all_files[4:5]
-test_files = all_files[4:5]
-#valid_files = all_files[12:14]
-#test_files = all_files[14:]
+train_files = all_files[0:12]
+valid_files = all_files[13:14]
+test_files = all_files[14:16]
 
 train_dataset = rPPGDataset(train_files, mode='train', crop_len=300)
 valid_dataset = rPPGDataset(valid_files, mode='val', crop_len=300)
@@ -42,95 +69,51 @@ print(f"train: {len(train_dataset)}샘플")
 print(f"val:   {len(valid_dataset)}샘플")   # N_seg * 0.2 * 3구간
 print(f"test:  {len(test_dataset)}샘플")
 
-batch_size = 4
+train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,
+                          num_workers=2, worker_init_fn=worker_init_fn)
+valid_loader = DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=False,
+                          num_workers=0, worker_init_fn=worker_init_fn)
+test_loader  = DataLoader(test_dataset,  batch_size=BATCH_SIZE, shuffle=False,
+                          num_workers=0, worker_init_fn=worker_init_fn)
 
-#train_loader = DataLoader(train_dataset, batch_size=batch_size , shuffle=True, collate_fn=collate_fn, num_workers=4)
-#valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, num_workers=4)
-#test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate_fn, num_workers=4)
+# ── 모델 / 옵티마이저 ──
+device    = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model     = rPPGTransformer().to(device)
+criterion = RhythmFormer_Loss().to(device)
+optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WD)
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size , shuffle=True,  num_workers=4)
-valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False,  num_workers=4)
-test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
+# ── 저장 prefix ──
+RUN_TAG = f'{MODEL_NAME}_lr{str(LR).replace(".", "p")}_wd{str(WD).replace(".", "p")}_seed{SEED}_crop{CROP_LEN}'
+# 예: rPPGTransformer_lr0.01_wd0.0001_seed42_crop300
 
-#for inputs, targets,pos_pad, pad_mask  in train_loader:
-for inputs, targets  in train_loader:
-    print("\n[DataLoader Test]")
-    print(f"Input Video Batch Shape: {inputs.shape}")  # 예상: [4, 1, 900, 64, 64]
-    print(f"Target GT Batch Shape: {targets.shape}")   # 예상: [4, 900]
-    break
-
-'''
-
-# 배치 1개
-tokens_pad, gt_batch, pos_pad, pad_mask = next(iter(train_loader))
-
-gt = gt_batch[0].numpy()      # (T,)
-fs = 30
-
-# ── 1. GT band energy ──
-b, a = butter(2, [0.75/(fs/2), 2.5/(fs/2)], btype='band')
-gt_filtered = filtfilt(b, a, gt)
-gt_ratio = np.var(gt_filtered) / (np.var(gt) + 1e-8)
-print(f'GT band energy ratio: {gt_ratio:.4f}')
-
-# ── 2. token band energy ──
-tokens  = tokens_pad[0]          # (N, T)
-valid   = ~pad_mask[0]           # (N,)
-valid_ts = tokens[valid].numpy() # (N_valid, T)
-
-ratios = []
-for i in range(min(20, len(valid_ts))):
-    ts = valid_ts[i]
-    ts_f = filtfilt(b, a, ts)
-    ratios.append(np.var(ts_f) / (np.var(ts) + 1e-8))
-
-print(f'Token band energy ratios: {[f"{r:.4f}" for r in ratios]}')
-print(f'Token band energy mean  : {np.mean(ratios):.4f}')
-
-'''
-
-# 설정 부분은 그대로 유지
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = PhysNet_padding_Encoder_Decoder_MAX().to(device) 
-#model = rPPGTransformer().to(device) 
-#criterion = RhythmFormer_Loss().to(device)
-criterion = Neg_Pearson().to(device)
-lr_ = 1e-2
-optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
-num_epochs = 50
-
+# ── 학습 루프 ──
 best_val_loss = float('inf')
-#main_pbar = tqdm(range(num_epochs), desc="Total Epochs")
-
 train_loss_list = []
 valid_loss_list = []
 train_mae_list, valid_mae_list = [], []
+test_mae_list = []
 
-test_loss_list, test_mae_list = [], []
-
-for epoch in range(num_epochs):
+for epoch in range(NUM_EPOCHS):
     train_loss, train_mae = train_one_epoch(model, train_loader, criterion, optimizer, device)
-    val_loss, val_mae, val_denom = validate(model, valid_loader, criterion, device)
-    test_loss, test_mae,_ = validate(model, test_loader, criterion, device)
+    val_loss, val_mae, val_loss_time, val_loss_CE, val_loss_HR = validate(model, valid_loader, criterion, device)
+    test_loss, test_mae, _, _, _ = validate(model, test_loader, criterion, device)
 
-    #val_loss, val_mae,val_time,val_CE,val_HR = validate(model, valid_loader, criterion, device)
-    #test_loss, test_mae,test_time,test_CE,test_HR = validate(model, test_loader, criterion, device)
-    
     train_loss_list.append(train_loss)
     valid_loss_list.append(val_loss)
     train_mae_list.append(train_mae)
     valid_mae_list.append(val_mae)
-
-    #test_loss_list.append(test_loss)
     test_mae_list.append(test_mae)
 
-    tqdm.write(f"Epoch [{epoch+1}/{num_epochs}] "
-               f"Train Loss: {train_loss:.4f}, MAE: {train_mae:.2f} BPM | "
-               f"Val Loss: {val_loss:.4f}, MAE: {val_mae:.2f} BPM | "
-               f"Test MAE: {test_mae:.2f} BPM, Val numer: {val_denom:.4f}") 
-                   
-                   
-                   #f"Val PCC: {val_time:.4f}, Val CE: {val_CE:.2f}, Val HR: {val_HR:.2f} | "
+    tqdm.write(
+        f"Epoch [{epoch+1}/{NUM_EPOCHS}] "
+        f"Train Loss: {train_loss:.4f}, MAE: {train_mae:.2f} BPM | "
+        f"Val Loss: {val_loss:.4f}, MAE: {val_mae:.2f} BPM | "
+        f"Val Time: {val_loss_time:.4f}, CE: {val_loss_CE:.4f}, HR: {val_loss_HR:.4f} | "
+        f"Test MAE: {test_mae:.2f} BPM"
+    )
+
     if val_loss < best_val_loss:
         best_val_loss = val_loss
-        torch.save(model.state_dict(), f'3dres_data_wo_ol_lr:{str(lr_)}_epoch:{str(epoch)}.pth')
+        save_path = f'{RUN_TAG}_epoch{epoch}_valloss{val_loss:.4f}'.replace('.', 'p') + '.pth'
+        torch.save(model.state_dict(), save_path)
+        tqdm.write(f"  ✓ Saved: {save_path}")
