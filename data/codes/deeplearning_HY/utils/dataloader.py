@@ -32,7 +32,7 @@ def hampel_filter(x, window_size=10, n_sigma=3.0):
     return x
 
 
-def butter_bandpass_filter_t(data, fs=30, low=0.7, high=4.0, order=4,
+def butter_bandpass_filter_t(data, fs=30, low=0.66, high=4.0, order=4,
                               apply_hampel=True,
                               hampel_window=10, hampel_sigma=3.0):
     nyq  = 0.5 * fs
@@ -107,6 +107,7 @@ def build_stmap(video: np.ndarray,
 def normalize_label(label: np.ndarray) -> np.ndarray:
     std = label.std()
     if std < 1e-6:
+        print("std check")
         return np.zeros_like(label, dtype=np.float32)
     return ((label - label.mean()) / std).astype(np.float32)
 
@@ -193,7 +194,7 @@ class rPPGDataset(Dataset):
 
     @staticmethod
     def _compute_subject_stats(h5_path, seg_indices, gt_all,
-                                fs=30, low=0.7, high=4.0, order=4):
+                                fs=30, low=0.66, high=4.0, order=4):
         all_gt_diffs = []
         for i in seg_indices:
             gt = gt_all[i].astype(np.float32)

@@ -57,7 +57,7 @@ def hr_fft(sig, fs, harmonics_removal=True, lowcut=0.66, highcut=2.5):
     return hr, sig_f_original, x_hr
 
 
-DATA_DIR = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier'
+DATA_DIR = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_len300'
 
 h5_files = sorted(glob.glob(os.path.join(DATA_DIR, '*.h5')))
 

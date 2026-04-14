@@ -38,11 +38,11 @@ def validate(model, loader, criterion, device, fs=30):
             #loss,numer,denom = criterion(outputs, targets)
             #print(f"loss: {loss.item():.4f}, numer: {numer.item():.4f}, denom: {denom.item():.4f}")
             #print(f"pred std: {outputs.std(dim=-1).mean().item():.6f}")
-            loss,time,CE,HR = criterion(outputs, targets, 0)
+            loss,time,HR = criterion(outputs, targets, 0)
             running_loss += loss.item()
 
             running_loss_time += time.item()
-            running_loss_CE += CE.item()
+            #running_loss_CE += CE.item()
             running_loss_HR += HR.item()
             
             # MAE 계산
@@ -53,15 +53,15 @@ def validate(model, loader, criterion, device, fs=30):
     avg_loss = running_loss / len(loader)
 
     avg_loss_time = running_loss_time / len(loader)
-    avg_loss_CE = running_loss_CE / len(loader)
+    #avg_loss_CE = running_loss_CE / len(loader)
     avg_loss_HR = running_loss_HR / len(loader)
 
     avg_mae = running_mae / total_valid_samples if total_valid_samples > 0 else 0.0
     #return avg_loss, avg_mae, avg_loss_time,avg_loss_CE,avg_loss_HR
-    return avg_loss, avg_mae, avg_loss_time, avg_loss_CE, avg_loss_HR
+    return avg_loss, avg_mae, avg_loss_time, avg_loss_HR
 
 
-def train_one_epoch(model, loader, criterion, optimizer, device, fs=30):
+def train_one_epoch(epoch, model, loader, criterion, optimizer, device, fs=30):
     model.train()
     running_loss = 0.0
     running_mae = 0.0
@@ -78,7 +78,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, fs=30):
         #loss,numer,denom = criterion(outputs, targets)
         #print(f"loss: {loss_val.item():.4f}, numer: {numer.item():.4f}, denom: {denom.item():.4f}")
         #print(f"pred std: {pred.std(dim=-1).mean().item():.6f}")
-        loss,_,_,_ = criterion(outputs, targets, 0)
+        loss,_,_ = criterion(outputs, targets, epoch)
         
         loss.backward()
         optimizer.step()

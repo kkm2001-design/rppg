@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn 
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
-from utils.utils_sig import calculate_batch_mae, z_norm
+from utils.utils_sig import calculate_batch_mae, z_norm, bandpass_fft, bandpass_fft_soft
 from utils.Loss import *
 
 def z_norm_per_sample(x):
@@ -38,7 +38,9 @@ def validate(model, loader, criterion, device, epoch, fs=30):
         for inputs, targets, hr in loader:
             inputs, targets, hr = inputs.to(device), targets.to(device), hr.to(device)
             outputs, _, _, _ = model(inputs)
+            outputs = bandpass_fft_soft(outputs)
             outputs = z_norm_per_sample(outputs)
+
 
             if is_hybrid:
                 loss, loss_ncor, loss_mse = criterion(outputs, targets)
@@ -115,6 +117,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
         
         optimizer.zero_grad()
         outputs, _, _, _ = model(inputs)
+        outputs = bandpass_fft_soft(outputs)
         outputs = z_norm_per_sample(outputs) ## 입력전 znorm physformer 논문기반
         
         if is_hybrid:

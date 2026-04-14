@@ -23,10 +23,10 @@ from utils.models import *
 ##  2. 13번 subject를 뺏을떄 mae가 적절하게 나오는지 13번의 히스토그램상 혼자 이상해서 예를 빼는게맞는지 혹은 train에 넣기
 
 print('3dphysnettest train_files = all_files[:12] valid_files = all_files[13:14]test_files = alt_files[14:]]')
-print('900frame / physformerloss test/ gt subjectwise test / with registration/ 13subject ou5/ normbeforelosscompute ')
+print('300frame / gt subjectwise test / without registration/ 13subject out / bandpassbeforelosscompute_negcorloss ')
 
-data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier'
-parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/withregis_13out_and_znormbeforelosscompute_physformerloss'
+data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_len300'
+parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/300franewithregis_13out_and_znorm/bandpassbeforelosscompute_negcorloss'
 os.makedirs(parameter_save_dir, exist_ok= True)
 
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
@@ -39,7 +39,7 @@ train_dataset = rPPGDataset(train_files)
 valid_dataset = rPPGDataset(valid_files)
 test_dataset = rPPGDataset(test_files)
 
-batch_size = 8
+batch_size = 24
 
 train_loader = DataLoader(train_dataset, batch_size = batch_size , shuffle = True, num_workers =4)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
@@ -58,10 +58,10 @@ test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, nu
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #model = rPPG_3D_ResNet().to(device) 
 model = PhysNet_padding_Encoder_Decoder_MAX().to(device) 
-criterion = physformerLoss()
+criterion = Neg_Pearson()
 lr_ = 3*1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
-num_epochs = 50
+num_epochs = 150
 
 best_val_loss = float('inf')
 main_pbar = tqdm(range(num_epochs), desc="Total Epochs")

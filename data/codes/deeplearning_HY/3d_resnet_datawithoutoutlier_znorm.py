@@ -1,7 +1,7 @@
 import os
 # torch import 전에 반드시 실행
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID" 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 
 import h5py
@@ -94,9 +94,9 @@ train_mae_list, valid_mae_list = [], []
 test_mae_list = []
 
 for epoch in range(NUM_EPOCHS):
-    train_loss, train_mae = train_one_epoch(model, train_loader, criterion, optimizer, device)
-    val_loss, val_mae, val_loss_time, val_loss_CE, val_loss_HR = validate(model, valid_loader, criterion, device)
-    test_loss, test_mae, _, _, _ = validate(model, test_loader, criterion, device)
+    train_loss, train_mae = train_one_epoch(epoch, model, train_loader, criterion, optimizer, device)
+    val_loss, val_mae, val_loss_time, val_loss_HR = validate(model, valid_loader, criterion, device)
+    test_loss, test_mae, _, _ = validate(model, test_loader, criterion, device)
 
     train_loss_list.append(train_loss)
     valid_loss_list.append(val_loss)
@@ -108,7 +108,7 @@ for epoch in range(NUM_EPOCHS):
         f"Epoch [{epoch+1}/{NUM_EPOCHS}] "
         f"Train Loss: {train_loss:.4f}, MAE: {train_mae:.2f} BPM | "
         f"Val Loss: {val_loss:.4f}, MAE: {val_mae:.2f} BPM | "
-        f"Val Time: {val_loss_time:.4f}, CE: {val_loss_CE:.4f}, HR: {val_loss_HR:.4f} | "
+        f"Val Time: {val_loss_time:.4f}, HR: {val_loss_HR:.4f} | "
         f"Test MAE: {test_mae:.2f} BPM"
     )
 

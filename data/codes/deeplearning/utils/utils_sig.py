@@ -474,3 +474,32 @@ def calculate_batch_mae(preds, targets, fs=30):
             valid_count += 1
             
     return mae_sum, valid_count
+
+def bandpass_fft(signal, fs =30, low_hz=0.66, high_hz=2.5):
+
+    N = signal.shape[-1]
+    
+    freqs = torch.fft.rfftfreq(N, d=1.0/fs).to(signal.device)  # (N//2+1,)
+    
+    fft_signal = torch.fft.rfft(signal)  # (B, N//2+1) 복소수
+    
+    # 마스크: 통과 구간만 1
+    mask = ((freqs >= low_hz) & (freqs <= high_hz)).float()  # (N//2+1,)
+    
+    fft_filtered = fft_signal * mask  # (B, N//2+1)
+    filtered = torch.fft.irfft(fft_filtered, n=N)  # (B, T)
+    return filtered
+
+
+def bandpass_fft_soft(signal, fs=30, low_hz=0.66, high_hz=2.5, steepness=50.0):
+    N = signal.shape[-1]
+    freqs = torch.fft.rfftfreq(N, d=1.0/fs).to(signal.device)
+    
+    fft_signal = torch.fft.rfft(signal)
+    
+    # sigmoid로 soft boundary
+    mask = torch.sigmoid(steepness * (freqs - low_hz)) * torch.sigmoid(steepness * (high_hz - freqs))
+    
+    fft_filtered = fft_signal * mask
+    filtered = torch.fft.irfft(fft_filtered, n=N)
+    return filtered
