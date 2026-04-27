@@ -6,6 +6,14 @@ import glob
 from scipy import signal
 from scipy.fft import fft
 
+def bandpass_fft_soft_np(x, fs=30, low_hz=0.66, high_hz = 2.5, steepness=50.0):
+    N = x.shape[-1]
+    freqs = np.fft.rfftfreq(N, d=1.0/fs)
+    fft_x = np.fft.rfft(x)
+    mask = (1 / (1 + np.exp(-steepness * (freqs - low_hz)))) * \
+           (1 / (1 + np.exp(-steepness * (high_hz - freqs))))
+    return np.fft.irfft(fft_x * mask, n=N)
+
 def hr_fft(sig, fs, harmonics_removal=True, lowcut=0.66, highcut=2.5):
     # get heart rate by FFT
     # return both heart rate and PSD
@@ -57,7 +65,7 @@ def hr_fft(sig, fs, harmonics_removal=True, lowcut=0.66, highcut=2.5):
     return hr, sig_f_original, x_hr
 
 
-DATA_DIR = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_len300'
+DATA_DIR = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/driving_cropped_dl_data'
 
 h5_files = sorted(glob.glob(os.path.join(DATA_DIR, '*.h5')))
 
@@ -70,6 +78,7 @@ for fpath in h5_files:
         ppg_all = f['gt_ppg'][:]  # (N, 900)
         hr_list = []
         nan_count = 0
+        ppg_all = bandpass_fft_soft_np(ppg_all)
 
         for i in range(ppg_all.shape[0]):
             hr, _, _ = hr_fft(ppg_all[i], fs=30)

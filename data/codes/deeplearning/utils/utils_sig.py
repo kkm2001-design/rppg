@@ -446,25 +446,26 @@ class get_sig(): #신호를 부위에 따라 얻는 class
         return f_sig
 
 
-# MAE 계산을 위한 헬퍼 함수
 def calculate_batch_mae(preds, targets, fs=30):
     batch_size = preds.shape[0]
     mae_sum = 0.0
     valid_count = 0
     
-    # GPU 텐서를 CPU 넘파이 배열로 변환
+    # 💡 1. [핵심] for문 진입 전, GPU 텐서 상태에서 배치 전체를 한 번에 필터링!
+    # preds가 (B, N) 형태라면 내부적으로 병렬 처리되어 (B, N)으로 반환됩니다.
+    
+    #preds_filtered = bandpass_fft_soft(preds, fs=fs, low_hz=0.66, high_hz=2.5)
+    
+    # 💡 2. 필터링이 완료된 깨끗한 신호를 CPU 넘파이 배열로 변환
     preds_np = preds.detach().cpu().numpy()
     targets_np = targets.detach().cpu().numpy()
     
+    # 3. hr_fft 연산을 위한 for문 (hr_fft는 넘파이 기반 함수이므로 루프 유지)
     for i in range(batch_size):
-        pred_sig = preds_np[i]
+        pred_sig_filtered = preds_np[i]
         gt_sig = targets_np[i]
         
-        # 1. Bandpass Filter 적용 (노이즈 제거)
-        pred_sig_filtered = butter_bandpass_filter(pred_sig, 0.66, 2.5, fs)
-
-        
-        # 2. FFT 기반 HR 추출
+        # FFT 기반 HR 추출
         pred_hr, _, _ = hr_fft(pred_sig_filtered, fs)
         gt_hr, _, _ = hr_fft(gt_sig, fs)
         

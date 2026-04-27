@@ -52,7 +52,7 @@ class Neg_Pearson_Freq(nn.Module):
         ).clamp(min=1e-8)
 
         r = numer / denom          # (B,)
-        return (-r).mean()
+        return (1-r).mean()
 
 class CalculateNormPSD(nn.Module):
     # we reuse the code in Gideon2021 to get the normalized power spectral density
@@ -66,7 +66,9 @@ class CalculateNormPSD(nn.Module):
 
     def forward(self, x, zero_pad=0):
         x = bandpass_fft(x, 30, 0.66, 4.0)
+        
         x = x - torch.mean(x, dim=-1, keepdim=True)
+        
         if zero_pad > 0:
             L = x.shape[-1]
             x = F.pad(x, (int(zero_pad/2*L), int(zero_pad/2*L)), 'constant', 0)
@@ -132,8 +134,8 @@ class RhythmFormer_Loss(nn.Module):
         loss_time = torch.tensor(0.0).cuda()
         loss_hr   = torch.tensor(0.0).cuda()
 
-        lambda_time = 0.2
-        lambda_HR = 1.0
+        lambda_time = 1.0
+        lambda_HR = 0.0
 
         #if epoch > 0:
         #    lambda_time = 0.1

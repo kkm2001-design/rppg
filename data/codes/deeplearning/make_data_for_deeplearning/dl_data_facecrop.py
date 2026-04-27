@@ -31,7 +31,7 @@ def get_face_bbox(landmark_xy, h, w, margin=0.1):
 
 def extract_crop_and_interp(
     video_windows,       # (N_windows, 900, H, W) 단채널
-    output_size=(64, 64)
+    output_size=(128, 128)
 ):
     clahe_obj = cv2.createCLAHE(clipLimit=6.0, tileGridSize=(8, 8))
     N_windows, window_size, H, W = video_windows.shape

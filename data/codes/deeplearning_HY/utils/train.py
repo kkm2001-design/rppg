@@ -5,7 +5,7 @@ import numpy as np
 from utils.utils_sig import calculate_batch_mae
 from tqdm import tqdm 
 
-def validate(model, loader, criterion, device, fs=30):
+def validate(epoch, model, loader, criterion, device, fs=30):
     model.eval()
     running_loss = 0.0
     running_denom = 0.0
@@ -38,12 +38,12 @@ def validate(model, loader, criterion, device, fs=30):
             #loss,numer,denom = criterion(outputs, targets)
             #print(f"loss: {loss.item():.4f}, numer: {numer.item():.4f}, denom: {denom.item():.4f}")
             #print(f"pred std: {outputs.std(dim=-1).mean().item():.6f}")
-            loss,time,HR = criterion(outputs, targets, 0)
+            loss = criterion(outputs, targets, epoch)
             running_loss += loss.item()
 
-            running_loss_time += time.item()
+            #running_loss_time += time.item()
             #running_loss_CE += CE.item()
-            running_loss_HR += HR.item()
+            #running_loss_HR += HR.item()
             
             # MAE 계산
             batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs)
@@ -57,9 +57,9 @@ def validate(model, loader, criterion, device, fs=30):
     avg_loss_HR = running_loss_HR / len(loader)
 
     avg_mae = running_mae / total_valid_samples if total_valid_samples > 0 else 0.0
-    #return avg_loss, avg_mae, avg_loss_time,avg_loss_CE,avg_loss_HR
-    return avg_loss, avg_mae, avg_loss_time, avg_loss_HR
-
+    #return avg_loss, avg_mae, avg_loss_time,avg_loss_CE, avg_loss_HR
+    #return avg_loss, avg_mae, avg_loss_time, avg_loss_HR
+    return avg_loss, avg_mae
 
 def train_one_epoch(epoch, model, loader, criterion, optimizer, device, fs=30):
     model.train()
@@ -78,7 +78,7 @@ def train_one_epoch(epoch, model, loader, criterion, optimizer, device, fs=30):
         #loss,numer,denom = criterion(outputs, targets)
         #print(f"loss: {loss_val.item():.4f}, numer: {numer.item():.4f}, denom: {denom.item():.4f}")
         #print(f"pred std: {pred.std(dim=-1).mean().item():.6f}")
-        loss,_,_ = criterion(outputs, targets, epoch)
+        loss = criterion(outputs, targets, epoch)
         
         loss.backward()
         optimizer.step()

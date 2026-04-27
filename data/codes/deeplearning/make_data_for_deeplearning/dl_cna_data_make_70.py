@@ -7,14 +7,69 @@ import numpy as np
 import scipy.signal as signal
 import scipy.interpolate as interp
 from tqdm import tqdm
+from scipy.signal import butter, filtfilt
+from scipy.signal import find_peaks,welch
+from scipy.fft import fft
 
-def butter_bandpass_filter(data, lowcut, highcut, fs, order=2):
-    nyq = 0.5 * fs
-    low = lowcut / nyq
-    high = highcut / nyq
-    b, a = signal.butter(order, [low, high], btype='band')
-    return signal.filtfilt(b, a, data)
 
+def hr_fft(sig, fs, harmonics_removal=True, lowcut=0.66, highcut=2.5):
+    # get heart rate by FFT
+    # return both heart rate and PSD
+
+    sig = sig.reshape(-1)
+    sig = sig * signal.windows.hann(sig.shape[0]) # 양사이드 0처리
+    sig_f = np.abs(fft(sig))
+    
+    low_idx = np.round(lowcut / fs * sig.shape[0]).astype('int') 
+    high_idx = np.round(highcut / fs * sig.shape[0]).astype('int') 
+    
+    sig_f_original = sig_f.copy()
+    
+    sig_f[:low_idx] = 0
+    sig_f[high_idx:] = 0
+
+    peak_idx, _ = signal.find_peaks(sig_f)
+    
+    if len(peak_idx) == 0 : 
+        x_hr = np.arange(len(sig))/len(sig)*fs*60
+        return  np.nan , sig_f_original, x_hr
+
+    if len(peak_idx) == 1 :
+        hr = (peak_idx[0] * fs) * 60 / sig.shape[0]
+        x_hr = np.arange(len(sig))/len(sig)*fs*60
+        return hr, sig_f_original, x_hr
+        
+    sort_idx = np.argsort(sig_f[peak_idx])
+    sort_idx = sort_idx[::-1]
+
+    peak_idx1 = peak_idx[sort_idx[0]]
+    peak_idx2 = peak_idx[sort_idx[1]]
+
+    f_hr1 = peak_idx1 / sig.shape[0] * fs
+    hr1 = f_hr1 * 60
+
+    f_hr2 = peak_idx2 / sig.shape[0] * fs
+    hr2 = f_hr2 * 60
+
+    if harmonics_removal:
+        if np.abs(hr1-2*hr2)<10:
+            hr = hr2
+        else:
+            hr = hr1
+    else:
+        hr = hr1
+
+    x_hr = np.arange(len(sig))/len(sig)*fs*60
+    return hr, sig_f_original, x_hr
+
+def bandpass_fft_soft_np(x, fs=30, low_hz=0.66, high_hz=2.5, steepness=50.0):
+    N = x.shape[-1]
+    freqs = np.fft.rfftfreq(N, d=1.0/fs)
+    fft_x = np.fft.rfft(x)
+    mask = (1 / (1 + np.exp(-steepness * (freqs - low_hz)))) * \
+           (1 / (1 + np.exp(-steepness * (high_hz - freqs))))
+    return np.fft.irfft(fft_x * mask, n=N)
+    
 def z_norm(data):
     return (data - np.mean(data, axis=0)) / (np.std(data, axis=0) + 1e-8)
 
@@ -56,12 +111,10 @@ def process_video_and_gt_windows(video_data, gt_ppg, sub_valid, window_size=300,
                     discarded_indices.append(i)
                     continue
 
-            # GT 전처리
-            filter_gt   = butter_bandpass_filter(win_gt, 0.66, 2.5, fs_video, order=2)
-            win_gt_norm = z_norm(filter_gt)
+
 
             valid_vid_raw_list.append(win_video)
-            valid_gt_list.append(win_gt_norm)
+            valid_gt_list.append(win_gt)
 
         except Exception as e:
             print(f'  Window {i} Error: {e}')
@@ -81,7 +134,7 @@ people_ppg = sorted([k.replace('_20', '_') for k in people])
 
 preprocess_result_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/uv_registration_CNA'
 ppg_cut_dir           = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/ppg_cut_final'
-final_save_dir        = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_len300'
+final_save_dir        = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier'
 os.makedirs(final_save_dir, exist_ok=True)
 
 # ===== 메인 루프 =====
@@ -101,14 +154,30 @@ for sub_idx in range(len(people)):
     ppg_cut = pd.read_csv(gt_csv_path).values.flatten()
     ppg_downsampled = signal.resample(ppg_cut, len(video_data))
 
+    ppg_filt = bandpass_fft_soft_np(ppg_downsampled)
+    ppg_norm = z_norm(ppg_filt)
+
     # 윈도우 처리
     valid_vid_raw_list, valid_gt_list, discarded = process_video_and_gt_windows(
         video_data=video_data,
-        gt_ppg=ppg_downsampled,
+        gt_ppg=ppg_norm,
         sub_valid=sub_valid,
-        window_size=300,
+        window_size=900,
         max_gap_threshold=30
     )
+    nan_count = 0
+    hr_list = []
+
+    for i in range(len(valid_gt_list)):
+        hr, _, _ = hr_fft(valid_gt_list[i], fs=30)
+        if np.isnan(hr):
+            nan_count += 1
+            hr = 0.0  # nan 처리 → 0으로 채움
+        hr_list.append(hr)
+
+    hr_array = np.array(hr_list)  # (N,)
+
+
 
     # 이상치 제거 (0~1 범위 벗어나는 윈도우)
     indi_dict = {'num': 0, 'index': []}
@@ -130,6 +199,7 @@ for sub_idx in range(len(people)):
         with h5py.File(final_h5_path, 'w') as f_out:
             f_out.create_dataset('video',  data=video_array, chunks=True, compression='gzip', compression_opts=4)
             f_out.create_dataset('gt_ppg', data=gt_array,    chunks=True, compression='gzip', compression_opts=4)
+            f_out.create_dataset('hr', data=hr_array,    chunks=True, compression='gzip', compression_opts=4)
 
         print(f"  -> 이상치 {indi_dict['num']}개 제외")
         print(f"  -> 정상 윈도우 {len(final_vid_list)}개 저장: {final_h5_path}")

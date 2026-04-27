@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]='4'
+os.environ["CUDA_VISIBLE_DEVICES"]='1'
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 import h5py
 import sys
@@ -11,16 +11,17 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import traceback
-from registration_algorithm import *
+from utils.registration_algorithm import *
 
 
-h5_dir = "/nasdata4/2yhy/rPPG_code/rPPG_datasets/h5_data/MR-NIRP_driving_still"
-output_dir ='/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_driving_registration'
+h5_dir = "/nasdata4/2yhy/rPPG_code/rPPG_datasets/h5_data/MR-NIRP_driving_motion"
+output_dir ='/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_driving_motion_registration'
+os.makedirs(output_dir, exist_ok=True)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 thresh_angle = 70
 
-files = sorted([f for f in os.listdir(h5_dir) if f.endswith('.h5')])
+files = sorted([f for f in os.listdir(h5_dir) if 'small_motion' if f.endswith('.h5')])
 
 for subject in files:
     print('='*80)
@@ -29,6 +30,7 @@ for subject in files:
     try:
         input_path = os.path.join(h5_dir, subject)
         output_path = os.path.join(output_dir, subject.replace('.h5', '_uv.h5'))
+
 
         # ===== [step1] 데이터 로드 =====
         print('-'*20, '[step1] 데이터 로드', '-'*20)
@@ -75,7 +77,7 @@ for subject in files:
         landmarks_xy_valid = landmarks_xy[valid_mask]
         landmarks_xyz_valid = landmarks_xyz[valid_mask]
 
-        warper = GPUPiecewiseAffineTransform(detector.landmarks_uv, device=device)
+        warper = GPUPiecewiseAffineTransform(detector.landmarks_uv, output_size = 128 , device=device)
         batch_size = 64
         frames_uv_list = []
 
@@ -98,6 +100,7 @@ for subject in files:
         masker = BatchUVAngleMasker(
             detector.mesh_faces,
             detector.landmarks_uv,
+            output_size = 128,
             device=device
         )
         frames_masked_list = []
@@ -122,7 +125,7 @@ for subject in files:
         # ===== [step5] 저장 =====
         print('-'*20, '[step5] 저장', '-'*20)
 
-        frames_final = np.zeros((num_frames_original, 64, 64, 3), dtype=np.float32)
+        frames_final = np.zeros((num_frames_original, 128, 128, 3), dtype=np.float32)
         frames_final[valid_mask_np] = frames_uv_masked
         result = frames_final[:, :, :, 0].astype(np.float32)
 

@@ -477,7 +477,7 @@ class GPUPiecewiseAffineTransform:
        - 즉시 (B, H, W, 2) 샘플링 그리드가 생성되며, F.grid_sample로 일괄 처리합니다.
     """
 
-    def __init__(self, keypoints_uv, output_size: int = 64 , device: str = "cuda"):
+    def __init__(self, keypoints_uv, output_size: int = 128 , device: str = "cuda"):
         """
         Args:
             keypoints_uv: (V, 2) Reference UV coordinates (0~1).

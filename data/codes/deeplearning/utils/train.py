@@ -22,14 +22,15 @@ def validate(model, loader, criterion, device, epoch, fs=30):
     running_ce   = 0.0
     total_valid_samples = 0
 
-    a_start = 0.1
-    b_start = 1.0
-    exp_a = 0.5
-    exp_b = 5.0
+    a_start = 1   
+    b_start = 0   
+    exp_a   = 0.5   
+    exp_b   = 2.0   
 
     is_hybrid     = isinstance(criterion, HybridLoss)
-    is_negcor     = isinstance(criterion, Neg_Pearson)
+    is_negcor     = isinstance(criterion, Neg_Pearson) 
     is_physformer = isinstance(criterion, physformerLoss)
+    is_ncors = isinstance(criterion ,NCorshift)
 
     # 루프 밖에서 한 번만 생성
     ncor_fn = Neg_Pearson().to(device)
@@ -50,20 +51,24 @@ def validate(model, loader, criterion, device, epoch, fs=30):
             elif is_negcor:
                 loss = criterion(outputs, targets)
 
+            elif is_ncors :
+                loss = criterion(outputs, targets, epoch)     
+
             elif is_physformer:
                 loss_kl, loss_ce, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
                     outputs, hr, Fs=30, std=1.0)
                 
                 ncorloss = ncor_fn(outputs, targets)
 
-                if epoch >25:
-                    a = 0.05
-                    b = 5.0
+                if epoch <= 50:
+                    a = a_start
+                    b = b_start
+
                 else:
                     # exp descend
-                    a = a_start*math.pow(exp_a, epoch/25.0)
+                    a = a_start*math.pow(exp_a, epoch/100.0) * math.sqrt(2)
                     # exp ascend
-                    b = b_start*math.pow(exp_b, epoch/25.0)
+                    b = math.pow(exp_b, epoch/100.0) / math.sqrt(2)
 
                 loss = a* ncorloss + b*(loss_kl + loss_ce)          # running_loss에 넣을 total
                 running_ncor += ncorloss.item()
@@ -102,14 +107,16 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
     running_ce = 0.0
     total_valid_samples = 0
 
-    a_start = 0.1   
-    b_start = 1.0   
+    a_start = 1   
+    b_start = 0   
     exp_a   = 0.5   
-    exp_b   = 5.0   
+    exp_b   = 2.0   
     
     is_hybrid = isinstance(criterion, HybridLoss) 
-    is_negcor = isinstance(criterion, Neg_Pearson)
+    is_negcor     = isinstance(criterion, Neg_Pearson) 
     is_physformer = isinstance(criterion, physformerLoss)
+    is_ncors = isinstance(criterion ,NCorshift)
+
     ncor_fn = Neg_Pearson().to(device) 
 
     for inputs, targets, hr in loader:
@@ -128,20 +135,23 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
         elif is_negcor:
             loss = criterion(outputs, targets)
 
+        elif is_ncors :
+            loss = criterion(outputs, targets, epoch)     
+
         elif is_physformer:
             loss_kl, loss_ce, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
                 outputs, hr, Fs=30, std=1.0)
             
             ncorloss = ncor_fn(outputs, targets)
 
-            if epoch >25:
-                a = 0.05
-                b = 5.0
+            if epoch <= 50:
+                a = a_start
+                b = b_start
             else:
                 # exp descend
-                a = a_start*math.pow(exp_a, epoch/25.0)
+                a = a_start*math.pow(exp_a, epoch/100.0) * math.sqrt(2)
                 # exp ascend
-                b = b_start*math.pow(exp_b, epoch/25.0)
+                b = math.pow(exp_b, epoch/100.0) / math.sqrt(2)
 
             loss = a* ncorloss + b*(loss_kl + loss_ce)          # running_loss에 넣을 total
             running_ncor += ncorloss.item()
