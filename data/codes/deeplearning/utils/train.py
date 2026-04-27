@@ -34,7 +34,7 @@ def validate(model, loader, criterion, device, epoch, fs=30):
 
     # 루프 밖에서 한 번만 생성
     ncor_fn = Neg_Pearson().to(device)
-
+    shift_list = None
     with torch.no_grad():
         for inputs, targets, hr in loader:
             inputs, targets, hr = inputs.to(device), targets.to(device), hr.to(device)
@@ -52,7 +52,7 @@ def validate(model, loader, criterion, device, epoch, fs=30):
                 loss = criterion(outputs, targets)
 
             elif is_ncors :
-                loss = criterion(outputs, targets, epoch)     
+                loss,  shift_list = criterion(outputs, targets, epoch)     
 
             elif is_physformer:
                 loss_kl, loss_ce, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
@@ -76,7 +76,7 @@ def validate(model, loader, criterion, device, epoch, fs=30):
                 running_ce   += loss_ce.item()    
 
             running_loss += loss.item()
-            batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs)
+            batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs, shift_list)
             running_mae         += batch_mae_sum
             total_valid_samples += valid_count
 
@@ -118,7 +118,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
     is_ncors = isinstance(criterion ,NCorshift)
 
     ncor_fn = Neg_Pearson().to(device) 
-
+    shift_list = None
     for inputs, targets, hr in loader:
         inputs, targets, hr = inputs.to(device), targets.to(device), hr.to(device)
         
@@ -136,7 +136,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
             loss = criterion(outputs, targets)
 
         elif is_ncors :
-            loss = criterion(outputs, targets, epoch)     
+            loss, shift_list = criterion(outputs, targets, epoch)     
 
         elif is_physformer:
             loss_kl, loss_ce, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
@@ -163,7 +163,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
         optimizer.step()
         
         running_loss += loss.item()
-        batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs)
+        batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs, shift_list)
         running_mae += batch_mae_sum
         total_valid_samples += valid_count
 

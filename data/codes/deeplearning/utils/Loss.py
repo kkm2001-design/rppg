@@ -38,15 +38,6 @@ class Neg_Pearson(nn.Module):
 
 class NCorshift(nn.Module):
     def __init__(self, fs=30, max_shift_sec=1/3, shift_start_epoch=15, eps=1e-8):
-        """
-        초기 지정된 에폭까지는 일반 Negative Pearson Correlation을 계산하고,
-        이후부터는 Time-shifted Negative Pearson Correlation을 계산합니다.
-        
-        fs: 샘플링 주파수 (Hz)
-        max_shift_sec: 최대 탐색 범위 (초)
-        shift_start_epoch: Shift를 시작할 에폭 임계값
-        eps: 0 나누기 방지용 작은 값
-        """
         super().__init__()
         self.fs = fs
         self.max_shift_frames = int(round(fs * max_shift_sec))
@@ -54,24 +45,20 @@ class NCorshift(nn.Module):
         self.eps = eps
 
     def _neg_pearson(self, pred, gt):
-        """일반 Negative Pearson Correlation 계산"""
         p_m = pred - pred.mean(dim=-1, keepdim=True)
         g_m = gt - gt.mean(dim=-1, keepdim=True)
-        
         numer = (p_m * g_m).sum(dim=-1)
         denom = torch.sqrt((p_m**2).sum(dim=-1) * (g_m**2).sum(dim=-1)).clamp(min=self.eps)
-        
-        r = numer / (denom+1e-8)
+        r = numer / denom
         return (1.0 - r).mean()
 
     def _shift_neg_pearson(self, pred, gt):
-        """Time-shifted Negative Pearson Correlation 계산"""
         B, T = pred.shape
         K = self.max_shift_frames
+        shifts = list(range(-K, K + 1))
         r_list = []
 
-        for shift in range(-K, K + 1):
-            # Shift 적용하여 overlap 구간 추출
+        for shift in shifts:
             if shift == 0:
                 p_s, g_s = pred, gt
             elif shift > 0:
@@ -80,34 +67,29 @@ class NCorshift(nn.Module):
                 s = -shift
                 p_s, g_s = pred[:, :-s], gt[:, s:]
 
-
-            # 해당 shift 구간에서의 Pearson Correlation
             p_m = p_s - p_s.mean(dim=-1, keepdim=True)
             g_m = g_s - g_s.mean(dim=-1, keepdim=True)
-            
             numer = (p_m * g_m).sum(dim=-1)
             denom = torch.sqrt((p_m**2).sum(dim=-1) * (g_m**2).sum(dim=-1)).clamp(min=self.eps)
-            
-            r = numer / (denom+1e-8)
-            r_list.append(r.unsqueeze(0)) # (1, B)
+            r = numer / denom
+            r_list.append(r.unsqueeze(0))
 
-        # 배치별 최대 상관계수 추출
-        r_all = torch.cat(r_list, dim=0) # (num_shifts, B)
-        best_r, _ = torch.max(r_all, dim=0) # (B,)
-        
-        return (1.0 - best_r).mean()
+        r_all = torch.cat(r_list, dim=0)        # (2K+1, B)
+        best_r, best_idx = torch.max(r_all, dim=0)  # (B,), (B,)
+
+        # best_idx → 실제 shift 값 변환: idx 0 = -K, idx 1 = -K+1, ...
+        best_shifts = best_idx - K               # (B,) 범위: [-K, K]
+
+        loss = (1.0 - best_r).mean()
+        return loss, best_shifts
 
     def forward(self, pred, gt, epoch):
-        """
-        epoch 정보에 따라 내부적으로 Loss 계산 방식을 전환합니다.
-        pred, gt는 이미 Bandpass 및 Z-norm 전처리가 완료된 (B, T) 텐서여야 합니다.
-        """
-        # 설정한 시작 에폭 이하일 경우 일반 Pearson 사용 (Warm-up)
         if epoch <= self.shift_start_epoch:
-            return self._neg_pearson(pred, gt)
-        # 그 이후부터는 Shift 탐색 적용
+            loss = self._neg_pearson(pred, gt)
+            return loss, torch.zeros(pred.shape[0], dtype=torch.long, device=pred.device)
         else:
             return self._shift_neg_pearson(pred, gt)
+
 
 
 
