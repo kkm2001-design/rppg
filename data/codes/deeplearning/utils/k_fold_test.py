@@ -7,61 +7,10 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from utils.utils_sig import calculate_batch_mae
 from utils.Loss import *
+from utils.train import *
 
 
-# ──────────────────────────────────────────────
-# forward 헬퍼 (PhysNet은 tuple 반환, 나머지는 tensor)
-# ──────────────────────────────────────────────
-def forward(model, inputs):
-    out = model(inputs)
-    if isinstance(out, tuple):
-        return out[0]
-    return out
 
-
-# ──────────────────────────────────────────────
-# One epoch
-# ──────────────────────────────────────────────
-def train_one_epoch(model, loader, criterion, optimizer, device, fs = 30):
-    model.train()
-    running_loss, running_mae, total_valid = 0.0, 0.0, 0
-
-    for inputs, targets in loader:
-        inputs, targets = inputs.to(device), targets.to(device)
-        optimizer.zero_grad()
-        outputs = forward(model, inputs)
-        loss = criterion(outputs, targets)
-        loss.backward()
-        optimizer.step()
-
-        running_loss += loss.item()
-        mae_sum, cnt = calculate_batch_mae(outputs, targets, fs)
-        running_mae += mae_sum
-        total_valid += cnt
-
-    avg_loss = running_loss / len(loader)
-    avg_mae  = running_mae  / total_valid if total_valid > 0 else 0.0
-    return avg_loss, avg_mae
-
-
-def validate(model, loader, criterion, device, fs= 30):
-    model.eval()
-    running_loss, running_mae, total_valid = 0.0, 0.0, 0
-
-    with torch.no_grad():
-        for inputs, targets in loader:
-            inputs, targets = inputs.to(device), targets.to(device)
-            outputs = forward(model, inputs)
-            loss = criterion(outputs, targets)
-
-            running_loss += loss.item()
-            mae_sum, cnt = calculate_batch_mae(outputs, targets, fs)
-            running_mae += mae_sum
-            total_valid += cnt
-
-    avg_loss = running_loss / len(loader)
-    avg_mae  = running_mae  / total_valid if total_valid > 0 else 0.0
-    return avg_loss, avg_mae
 
 
 # ──────────────────────────────────────────────
@@ -96,12 +45,11 @@ def run_kfold(
     batch_size  = 8,
     lr          = 1e-4,
     pic_dir     = './pics',
-    param_dir   = './params',
     tag         = 'exp',
     k           = None,          # None → LOSO
 ):
     os.makedirs(pic_dir,   exist_ok=True)
-    os.makedirs(param_dir, exist_ok=True)
+
 
     subject_ids = list(subject_file_map.keys())
 
@@ -148,13 +96,8 @@ def run_kfold(
 
         pbar = tqdm(range(1, num_epochs + 1), desc=f'Fold {fold_idx+1}', ncols=140)
         for epoch in pbar:
-            tr_loss, tr_mae = train_one_epoch(model, train_loader, criterion, optimizer, device)
-            vl_loss, vl_mae = validate(model, val_loader, criterion, device)
-
-            train_losses.append(tr_loss)
-            val_losses.append(vl_loss)
-            train_maes.append(tr_mae)
-            val_maes.append(vl_mae)
+            train_metrics = train_one_epoch(model, train_loader, criterion, device, epoch)
+            val_metrics = validate(model, val_loader, criterion, device, epoch)
 
             #scheduler.step()
 
@@ -175,7 +118,8 @@ def run_kfold(
             if vl_loss < best_val_loss:
                 best_val_loss = vl_loss
                 best_val_mae  = vl_mae   # ← best loss 시점 MAE 기록
-
+                param_dir = f'/home/son/orientation-uv-rppg/data/parameter_save/nirpdriving{model_select.__name__}/{val_files[0]}'  ################################ best parameter 저장 경로
+                os.makedirs(param_dir, exist_ok=True)
                 # 이전 best 파일 삭제
                 if best_epoch > 0:
                     old_ckpt = os.path.join(param_dir, f"{tag}_fold{fold_idx+1}_best_epoch{best_epoch}.pth")

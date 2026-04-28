@@ -32,7 +32,7 @@ def validate(model, loader, criterion, device, epoch, fs=30):
     is_physformer = isinstance(criterion, physformerLoss)
     is_ncors = isinstance(criterion ,NCorshift)
 
-    # 루프 밖에서 한 번만 생성
+    shift_list_save = []
     ncor_fn = Neg_Pearson().to(device)
     shift_list = None
     with torch.no_grad():
@@ -53,6 +53,7 @@ def validate(model, loader, criterion, device, epoch, fs=30):
 
             elif is_ncors :
                 loss,  shift_list = criterion(outputs, targets, epoch)     
+                shift_list_save.append(shift_list.detach().cpu().numpy())
 
             elif is_physformer:
                 loss_kl, loss_ce, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
@@ -92,6 +93,8 @@ def validate(model, loader, criterion, device, epoch, fs=30):
         metrics['ncor'] = running_ncor / len(loader)
         metrics['kl']   = running_kl   / len(loader)
         metrics['ce']   = running_ce   / len(loader)  # ← running_ce 맞게
+    elif is_ncors :
+        metrics['shift_list'] = np.concatenate(shift_list_save)
 
     return metrics
 

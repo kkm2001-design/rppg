@@ -27,7 +27,9 @@ print('300frame / gt subjectwise test / with registration/ bandpassbeforelosscom
 
 data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_driving_withoutoutlier_len300_gtsubjectznorm'
 parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/nirpdriving/with_regis_300frmae_bandpassbeforelosscompute_negcorshift'
+shift_list_save_dir = '/home/son/orientation-uv-rppg/data/shift_list_save/nirpdriving/with_regis_300frmae_bandpassbeforelosscompute_negcorshift'
 os.makedirs(parameter_save_dir, exist_ok= True)
+os.makedirs(shift_list_save_dir, exist_ok= True)
 
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('garage_large_motion_975_uv.h5') ]
 
@@ -42,7 +44,7 @@ train_dataset = rPPGDataset(train_files)
 valid_dataset = rPPGDataset(valid_files)
 test_dataset = rPPGDataset(test_files)
 
-batch_size = 6
+batch_size = 8
 
 train_loader = DataLoader(train_dataset, batch_size = batch_size , shuffle = True, num_workers =4)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
@@ -62,9 +64,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #model = rPPG_3D_ResNet().to(device) 
 model = PhysNet_padding_Encoder_Decoder_MAX(frames=300).to(device) 
 criterion = NCorshift()
-lr_ = 3*1e-4
+lr_ = 5*1e-5
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
-num_epochs = 150
+num_epochs = 100
 
 best_val_loss = float('inf')
 main_pbar = tqdm(range(num_epochs), desc="Total Epochs")
@@ -73,6 +75,7 @@ train_loss_list = []
 valid_loss_list = []
 train_mae_list, valid_mae_list = [], []
 
+best_val_loss = float('inf')
 
 for epoch in main_pbar:
     train_metrics = train_one_epoch(model, train_loader, criterion, optimizer, device, epoch+1)
@@ -116,7 +119,15 @@ for epoch in main_pbar:
                 f"Test Loss: {test_metrics['loss']:.4f} NCOR:{test_metrics['ncor']:.4f}, kl:{test_metrics['kl']:.4f}, ce:{test_metrics['ce']:.4f} , MAE: {test_metrics['mae']:.2f}"
             )
 
-    torch.save(model.state_dict(), os.path.join(parameter_save_dir, f'physent_data_wo_ol_lr:{str(lr_)}_epoch:{str(epoch)}_MAE:{val_metrics["mae"]: .2f}.pth'))
+    torch.save(model.state_dict(), os.path.join(parameter_save_dir, f'{str(lr_)}_epoch:{str(epoch)}_MAE:{val_metrics["mae"]: .2f}.pth'))
+
+    if val_metrics['loss'] < best_val_loss :
+        best_val_loss = val_metrics['loss']
+        if 'shift_list' in val_metrics :
+            np.save(os.path.join(shift_list_save_dir, f'best_val_shifts_{epoch+1}.npy') , val_metrics['shift_list'] )
+        if 'shift_list' in test_metrics :
+            np.save(os.path.join(shift_list_save_dir, f'best_test_shifts_{epoch+1}.npy') , test_metrics['shift_list'] )
+
 
 
 

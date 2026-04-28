@@ -122,56 +122,47 @@ def ppg_to_window(ppg, fail_index, window_size=900, lowcut=0.75, highcut=2.5) :
 
 
 
-def hr_fft(sig, fs, harmonics_removal=True, lowcut=0.66, highcut=2.5):
-    # get heart rate by FFT
-    # return both heart rate and PSD
-
+def hr_fft(sig, fs, harmonics_removal=True, lowcut=0.66, highcut=2.5, nfft=None):
     sig = sig.reshape(-1)
-    sig = sig * signal.windows.hann(sig.shape[0]) # 양사이드 0처리
-    sig_f = np.abs(fft(sig))
+    N = sig.shape[0]
+    sig = sig * signal.windows.hann(N)
     
-    low_idx = np.round(lowcut / fs * sig.shape[0]).astype('int') 
-    high_idx = np.round(highcut / fs * sig.shape[0]).astype('int') 
+    # zero-padding: 기본 4096 or 원래 길이보다 큰 값 사용
+    if nfft is None:
+        nfft = max(4096, N)
     
+    sig_f = np.abs(fft(sig, n=nfft))
+    
+    low_idx = np.round(lowcut / fs * nfft).astype('int')
+    high_idx = np.round(highcut / fs * nfft).astype('int')
     sig_f_original = sig_f.copy()
-    
     sig_f[:low_idx] = 0
     sig_f[high_idx:] = 0
 
     peak_idx, _ = signal.find_peaks(sig_f)
-    
-    if len(peak_idx) == 0 : 
-        x_hr = np.arange(len(sig))/len(sig)*fs*60
-        return  np.nan , sig_f_original, x_hr
+    x_hr = np.arange(nfft) / nfft * fs * 60
 
-    if len(peak_idx) == 1 :
-        hr = (peak_idx[0] * fs) * 60 / sig.shape[0]
-        x_hr = np.arange(len(sig))/len(sig)*fs*60
+    if len(peak_idx) == 0:
+        return np.nan, sig_f_original, x_hr
+    if len(peak_idx) == 1:
+        hr = peak_idx[0] / nfft * fs * 60
         return hr, sig_f_original, x_hr
-        
-    sort_idx = np.argsort(sig_f[peak_idx])
-    sort_idx = sort_idx[::-1]
 
+    sort_idx = np.argsort(sig_f[peak_idx])[::-1]
     peak_idx1 = peak_idx[sort_idx[0]]
     peak_idx2 = peak_idx[sort_idx[1]]
-
-    f_hr1 = peak_idx1 / sig.shape[0] * fs
-    hr1 = f_hr1 * 60
-
-    f_hr2 = peak_idx2 / sig.shape[0] * fs
-    hr2 = f_hr2 * 60
+    hr1 = peak_idx1 / nfft * fs * 60
+    hr2 = peak_idx2 / nfft * fs * 60
 
     if harmonics_removal:
-        if np.abs(hr1-2*hr2)<10:
+        if np.abs(hr1 - 2 * hr2) < 10:
             hr = hr2
         else:
             hr = hr1
     else:
         hr = hr1
 
-    x_hr = np.arange(len(sig))/len(sig)*fs*60
     return hr, sig_f_original, x_hr
-
 
 
 
@@ -446,35 +437,47 @@ class get_sig(): #신호를 부위에 따라 얻는 class
         return f_sig
 
 
-def calculate_batch_mae(preds, targets, fs=30):
+def calculate_batch_mae(preds, targets, fs=30, shifts=None):
+    """
+    shifts: (B,) 텐서 or None. 각 샘플별 best shift (프레임 단위).
+            양수 shift → pred를 shift만큼 앞으로 밀어서 gt와 정렬.
+    """
     batch_size = preds.shape[0]
     mae_sum = 0.0
     valid_count = 0
-    
-    # 💡 1. [핵심] for문 진입 전, GPU 텐서 상태에서 배치 전체를 한 번에 필터링!
-    # preds가 (B, N) 형태라면 내부적으로 병렬 처리되어 (B, N)으로 반환됩니다.
-    
-    #preds_filtered = bandpass_fft_soft(preds, fs=fs, low_hz=0.66, high_hz=2.5)
-    
-    # 💡 2. 필터링이 완료된 깨끗한 신호를 CPU 넘파이 배열로 변환
+
     preds_np = preds.detach().cpu().numpy()
     targets_np = targets.detach().cpu().numpy()
-    
-    # 3. hr_fft 연산을 위한 for문 (hr_fft는 넘파이 기반 함수이므로 루프 유지)
+
+    if shifts is not None:
+        shifts_np = shifts.detach().cpu().numpy()
+    else:
+        shifts_np = np.zeros(batch_size, dtype=int)
+
     for i in range(batch_size):
-        pred_sig_filtered = preds_np[i]
-        gt_sig = targets_np[i]
-        
-        # FFT 기반 HR 추출
-        pred_hr, _, _ = hr_fft(pred_sig_filtered, fs)
+        s = int(shifts_np[i])
+
+        # shift 적용: overlap 구간만 추출
+        if s == 0:
+            pred_sig = preds_np[i]
+            gt_sig = targets_np[i]
+        elif s > 0:
+            pred_sig = preds_np[i, s:]
+            gt_sig = targets_np[i, :-s]
+        else:
+            a = -s
+            pred_sig = preds_np[i, :-a]
+            gt_sig = targets_np[i, a:]
+
+        pred_hr, _, _ = hr_fft(pred_sig, fs)
         gt_hr, _, _ = hr_fft(gt_sig, fs)
-        
-        # 신호가 너무 튀어서 peak를 못 찾은 경우(NaN) 예외 처리
+
         if not np.isnan(pred_hr) and not np.isnan(gt_hr):
             mae_sum += np.abs(pred_hr - gt_hr)
             valid_count += 1
-            
+
     return mae_sum, valid_count
+    
 
 def bandpass_fft(signal, fs =30, low_hz=0.66, high_hz=2.5):
 

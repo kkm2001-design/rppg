@@ -16,19 +16,20 @@ model_select = PhysNet_padding_Encoder_Decoder_MAX
 # ──────────────────────────────────────────────
 # 경로 설정
 # ──────────────────────────────────────────────
-DATA_DIR   = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/MR-nirp_driving_dl_data' ############################## dl_data 불러오는 경로
+DATA_DIR   = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/driving_cropped_dl_data' ############################## dl_data 불러오는 경로
 PIC_DIR    = f'/home/son/orientation-uv-rppg/data/pics/MR-nirp_driving/{model_select.__name__}/LOSO'       ################################# loss curve 사진 저장 경로 
-PARAM_DIR  = f'/home/son/orientation-uv-rppg/data/codes/deeplearning/parameters_save/MR-nirp_driving/{model_select.__name__}/LOSO'  ################################ best parameter 저장 경로
 DEVICE     = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+os.makedirs(PIC_DIR, exist_ok= False)
+
 
 # ──────────────────────────────────────────────
 # subject → file 매핑 구성
 # ──────────────────────────────────────────────
-subject_ids = [f'subject{i}' for i in range(1, 20)]
+subject_ids = [f'subject{i}' for i in range(1, 16)]
 print(f'  MODEL : {model_select} / nirp_driving_kfold_test')
 subject_file_map = {}
 for sid in subject_ids:
-    files = sorted(glob.glob(os.path.join(DATA_DIR, f'{sid}_garage_still_940_uv_windowed.h5')))
+    files = sorted(glob.glob(os.path.join(DATA_DIR, f'{sid}_garage_large_motion_975_dldata.h5')))
     if files:
         subject_file_map[sid] = files
 
@@ -47,13 +48,12 @@ results = run_kfold(
     Dataset_cls      = rPPGDataset,
     norm_type        = 'fixed',
     device           = DEVICE,
-    num_epochs       = 100,
+    num_epochs       = 50,
     batch_size       = 8,
-    lr               = 1e-4,
+    lr               = 1e-6,
     pic_dir          = PIC_DIR,
-    param_dir        = PARAM_DIR,
     tag              = f'{model_select.__name__}_fixed_1e-3_LOSO',
-    k                = 4
+    k                = None
 )
 
 # ──────────────────────────────────────────────
