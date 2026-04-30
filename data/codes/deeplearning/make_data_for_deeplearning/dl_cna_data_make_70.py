@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+os.environ["CUDA_VISIBLE_DEVICES"] = '4'
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 import h5py
 import pandas as pd
@@ -134,7 +134,7 @@ people_ppg = sorted([k.replace('_20', '_') for k in people])
 
 preprocess_result_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/uv_registration_CNA'
 ppg_cut_dir           = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/ppg_cut_final'
-final_save_dir        = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier'
+final_save_dir        = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_len300'
 os.makedirs(final_save_dir, exist_ok=True)
 
 # ===== 메인 루프 =====
@@ -162,7 +162,7 @@ for sub_idx in range(len(people)):
         video_data=video_data,
         gt_ppg=ppg_norm,
         sub_valid=sub_valid,
-        window_size=900,
+        window_size=300,
         max_gap_threshold=30
     )
     nan_count = 0

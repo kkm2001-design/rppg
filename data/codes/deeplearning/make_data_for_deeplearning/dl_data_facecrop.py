@@ -136,7 +136,7 @@ for sub_idx in range(len(people)):
         dset = f.create_dataset(
             'video',
             data=final_raw_vid,
-            chunks=(1, 900, 64, 64),
+            chunks=(1, 300, 64, 64),
             compression='gzip',
             compression_opts=4
         )

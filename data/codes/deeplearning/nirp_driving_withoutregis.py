@@ -26,8 +26,8 @@ print('driving_nirp_without_registariotn/ 128*128frame')
 print('300frame / gt subjectwise test / without registration/ bandpassbeforelosscompute_ncorshiftloss ')
 
 data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/driving_cropped_dl_data'
-parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/nirpdriving/without_regis_300frmae_bandpassbeforelosscompute_negcorshift'
-shift_list_save_dir = '/home/son/orientation-uv-rppg/data/shift_list_save/nirpdriving/without_regis_300frmae_bandpassbeforelosscompute_negcorshift'
+parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/nirpdriving/physformer/without_regis_300frmae_bandpassbeforelosscompute_negcorshift'
+shift_list_save_dir = '/home/son/orientation-uv-rppg/data/shift_list_save/nirpdriving/physformer/without_regis_300frmae_bandpassbeforelosscompute_negcorshift'
 os.makedirs(parameter_save_dir, exist_ok= True)
 os.makedirs(shift_list_save_dir, exist_ok= True)
 

@@ -1,5 +1,6 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 import h5py
 import torch
@@ -13,11 +14,11 @@ from utils.train import *
 from utils.dataloader import *
 from utils.models import *
 
-print('LOSO / driving_cropped / 300frame / NCorshift/ withregis')
+print('LOSO / driving_cropped / 300frame / NCorshift/ withregis/ / physformer model')
 
 data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_driving_withoutoutlier_len300_gtsubjectznorm'
-save_root = '/home/son/orientation-uv-rppg/data/parameter_save/nirpdriving/LOSO_driving_withregis_ncorshift'
-shift_root = '/home/son/orientation-uv-rppg/data/shift_list_save/nirpdriving/LOSO_driving_withregis_ncorshift'
+save_root = '/home/son/orientation-uv-rppg/data/parameter_save/nirpdriving/physformer/LOSO_driving_withregis_ncorshift'
+shift_root = '/home/son/orientation-uv-rppg/data/shift_list_save/nirpdriving/physformer/LOSO_driving_withregis_ncorshift'
 
 all_files = sorted([os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith('.h5')])
 n_subjects = len(all_files)
@@ -25,9 +26,28 @@ print(f"Total subjects: {n_subjects}")
 for i, f in enumerate(all_files):
     print(f"  [{i}] {os.path.basename(f)}")
 
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#model = rPPG_3D_ResNet().to(device) 
+
+
+class PhysFormerWrapper(nn.Module):
+    def __init__(self, base_model, gra_sharp=2.0):
+        super().__init__()
+        self.model = base_model
+        self.gra_sharp = gra_sharp # 논문 디폴트 2.0
+
+    def forward(self, x):
+        # 1. 원본 모델에 필수 인자인 gra_sharp를 함께 넘겨줌
+        # 2. 반환되는 (rPPG, Score1, Score2, Score3) 중 첫 번째 rPPG만 가져옴
+        rPPG, _, _, _ = self.model(x, self.gra_sharp)
+        return rPPG
+
+
+
 lr_ = 1e-5
 num_epochs = 40
-batch_size = 6
+batch_size = 2
 fs = 30
 
 fold_results = []
@@ -48,7 +68,13 @@ for fold_idx in range(n_subjects):
     test_loader  = DataLoader(rPPGDataset(test_files),  batch_size=batch_size, shuffle=False, num_workers=4)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = PhysNet_padding_Encoder_Decoder_MAX(frames=300).to(device)
+    base_model = ViT_ST_ST_Compact3_TDC_gra_sharp(
+    image_size=(300, 64, 64), 
+    patches=(4, 4, 4), # 중요: 공간 해상도를 4x4로 맞추기 위한 셋업
+    in_channels=1, 
+    theta=0.2 # CDC_T 활성화
+    )
+    model = PhysFormerWrapper(base_model).to(device)
     criterion = NCorshift()
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
 
@@ -93,3 +119,5 @@ for r in fold_results:
 print(f"{'='*60}")
 print(f"Mean Loss: {np.mean(losses):.4f} ± {np.std(losses):.4f}")
 print(f"Mean MAE:  {np.mean(maes):.2f} ± {np.std(maes):.2f}")
+print(f"{'='*60}")
+print(f"{'='*60}")

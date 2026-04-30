@@ -59,7 +59,7 @@ class rPPGDataset(Dataset):
             video = f['video'][window_idx]   # (T, H, W), float32, [0, 1]
             gt    = f['gt_ppg'][window_idx]  # (T,), float64, already z-normed
             hr    = f['hr'][window_idx]
-        #video = self._normalize_video(video)   # (T, H, W)
+        video = self._normalize_video(video)   # (T, H, W)
         #video = video / 255.0
         video = np.expand_dims(video, axis=0)  # (1, T, H, W)
         #gt = gt / 3

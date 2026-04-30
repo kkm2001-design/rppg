@@ -38,7 +38,7 @@ def validate(model, loader, criterion, device, epoch, fs=30):
     with torch.no_grad():
         for inputs, targets, hr in loader:
             inputs, targets, hr = inputs.to(device), targets.to(device), hr.to(device)
-            outputs, _, _, _ = model(inputs)
+            outputs = model(inputs)
             outputs = bandpass_fft_soft(outputs)
             outputs = z_norm_per_sample(outputs)
 
@@ -126,7 +126,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
         inputs, targets, hr = inputs.to(device), targets.to(device), hr.to(device)
         
         optimizer.zero_grad()
-        outputs, _, _, _ = model(inputs)
+        outputs = model(inputs)
         outputs = bandpass_fft_soft(outputs)
         outputs = z_norm_per_sample(outputs) ## 입력전 znorm physformer 논문기반
         
