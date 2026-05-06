@@ -59,6 +59,12 @@ fs = 30
 fold_results = []
 
 for fold_idx in range(n_subjects):
+
+    if fold_idx > 0:
+        del model, optimizer, train_loader, test_loader
+        import gc; gc.collect()
+        torch.cuda.empty_cache()
+
     test_files  = [all_files[fold_idx]]
     train_files = [all_files[i] for i in range(n_subjects) if i != fold_idx]
 
@@ -84,7 +90,7 @@ for fold_idx in range(n_subjects):
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
 
     best_test_loss = float('inf')
-    best_test_mae = None
+    best_test_mae = float('inf')
 
     for epoch in range(num_epochs):
         train_metrics = train_one_epoch(model, train_loader, criterion, optimizer, device, epoch+1, fs)
@@ -98,8 +104,9 @@ for fold_idx in range(n_subjects):
 
         if test_metrics['loss'] < best_test_loss:
             best_test_loss = test_metrics['loss']
-            best_test_mae = test_metrics['mae']
             torch.save(model.state_dict(), os.path.join(fold_save_dir, 'best_model.pth'))
+        if test_metrics['mae'] < best_test_mae :
+            best_test_mae = test_metrics['mae']
 
             if 'shift_list' in test_metrics:
                 np.save(os.path.join(fold_shift_dir, 'best_test_shifts.npy'), test_metrics['shift_list'])

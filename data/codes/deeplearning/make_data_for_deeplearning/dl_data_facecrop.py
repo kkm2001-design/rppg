@@ -11,7 +11,6 @@ from tqdm import tqdm
 sys.path.append('/home/son/orientation-uv-rppg/data/codes/deeplearning/utils')
 from registration_algorithm import MediaPipeLandmarkDetector
 
-
 def get_face_bbox(landmark_xy, h, w, margin=0.1):
     x_min = int(np.clip(landmark_xy[:, 0].min(), 0, w))
     x_max = int(np.clip(landmark_xy[:, 0].max(), 0, w))
@@ -31,7 +30,7 @@ def get_face_bbox(landmark_xy, h, w, margin=0.1):
 
 def extract_crop_and_interp(
     video_windows,       # (N_windows, 900, H, W) 단채널
-    output_size=(128, 128)
+    output_size=(64, 64)
 ):
     clahe_obj = cv2.createCLAHE(clipLimit=6.0, tileGridSize=(8, 8))
     N_windows, window_size, H, W = video_windows.shape
@@ -103,8 +102,8 @@ people = ['A001_20250609', 'A002_20250609', 'A004_20250610', 'A005_20250611', 'A
           'A007_20250612', 'A008_20250612', 'B001_20250623', 'B002_20250623', 'B003_20250624',
           'B004_20250624', 'B005_20250625', 'B008_20250627', 'C001_20250701', 'C002_20250703', 'C003_20250702']
 
-input_dir  = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_without_registration'
-output_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_without_registration_cropped'
+input_dir  = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/raw_video_CNA'
+output_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/raw_data/CNA_members/KM_preprocess_data/dl_data_CNA_without_registration_cropped_len300'
 os.makedirs(output_dir, exist_ok=True)
 
 # ===== 메인 루프 =====

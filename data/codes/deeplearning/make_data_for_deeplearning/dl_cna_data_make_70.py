@@ -1,5 +1,5 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 import h5py
 import pandas as pd
@@ -85,7 +85,7 @@ def process_video_and_gt_windows(video_data, gt_ppg, sub_valid, window_size=300,
 
         win_video = video_data[s:e].copy()
         win_gt    = gt_ppg[s:e].copy()
-        win_valid = sub_valid[s:e].copy()
+        win_valid = sub_valid[s:e].copy()   
 
         # Gap 체크
         is_invalid = ~win_valid
