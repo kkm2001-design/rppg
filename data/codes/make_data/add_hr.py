@@ -65,15 +65,14 @@ def hr_fft(sig, fs, harmonics_removal=True, lowcut=0.66, highcut=2.5):
     return hr, sig_f_original, x_hr
 
 
-DATA_DIR = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/driving_cropped_dl_data'
+DATA_DIR = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_len300'
 
 h5_files = sorted(glob.glob(os.path.join(DATA_DIR, '*.h5')))
 
 for fpath in h5_files:
     with h5py.File(fpath, 'a') as f:
         if 'hr' in f:
-            print(f'[SKIP] {os.path.basename(fpath)}')
-            continue
+            del f['hr']
 
         ppg_all = f['gt_ppg'][:]  # (N, 900)
         hr_list = []

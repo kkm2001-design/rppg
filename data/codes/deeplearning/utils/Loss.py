@@ -37,7 +37,7 @@ class Neg_Pearson(nn.Module):
 
 
 class NCorshift(nn.Module):
-    def __init__(self, fs=30, max_shift_sec=1/3, shift_start_epoch=15, eps=1e-8):
+    def __init__(self, fs=30, max_shift_sec=1/2, shift_start_epoch=30, eps=1e-8):
         super().__init__()
         self.fs = fs
         self.max_shift_frames = int(round(fs * max_shift_sec))

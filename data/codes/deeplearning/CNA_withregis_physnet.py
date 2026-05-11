@@ -25,9 +25,9 @@ from utils.train_without_ce import *
 
 
 
-data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_without_registration_cropped'
-parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/900franewithoutregis_13out_and_znorm/bandpassbeforelosscompute_ncorshift'
-shift_list_save_dir = '/home/son/orientation-uv-rppg/data/shift_list_save/CNA_data/without_regis_900frmae_bandpassbeforelosscompute_negcorshift'
+data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_robust_diff_len300'
+parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/300franewithregis_diffnorm/bandpassbeforelosscompute_physformer+ncorshift'
+shift_list_save_dir = '/home/son/orientation-uv-rppg/data/shift_list_save/CNA_data/300franewithregis_diffnorm/bandpassbeforelosscompute_physformer+ncorshift'
 os.makedirs(parameter_save_dir, exist_ok= True)
 os.makedirs(shift_list_save_dir, exist_ok= True)
 
@@ -41,7 +41,7 @@ train_dataset = rPPGDataset(train_files)
 valid_dataset = rPPGDataset(valid_files)
 test_dataset = rPPGDataset(test_files)
 
-batch_size = 8
+batch_size = 24
 
 train_loader = DataLoader(train_dataset, batch_size = batch_size , shuffle = True, num_workers =4)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
@@ -64,13 +64,13 @@ model = PhysNet_padding_Encoder_Decoder_MAX().to(device)
 max_shift_sec = 1/2
 shift_start_epoch = 30
 
-criterion = NCorshift(fs=30, max_shift_sec= max_shift_sec , shift_start_epoch= shift_start_epoch, eps=1e-8)
+criterion = physformerLoss()
 lr_ = 1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
 num_epochs = 100
 
 print('3dphysnettest train_files = all_files[:12] valid_files = all_files[13:14]test_files = alt_files[14:]]')
-print(f'900frame / gt subjectwise test / without registration/ 13subject out / bandpassbeforelosscompute_ncorshift/ shift_sec :{max_shift_sec}/ shift_start_epoch : {shift_start_epoch} ')
+print(f'300frame / gt subjectwise test / with registration/ 13subject out / physformer+ncorshift/ shift_sec :{max_shift_sec}/ shift_start_epoch : {shift_start_epoch} ')
 
 
 best_val_loss = float('inf')

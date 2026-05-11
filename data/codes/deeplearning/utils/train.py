@@ -33,12 +33,14 @@ def validate(model, loader, criterion, device, epoch, fs=30):
     is_ncors = isinstance(criterion ,NCorshift)
 
     shift_list_save = []
-    ncor_fn = Neg_Pearson().to(device)
+    ncor_fn = NCorshift().to(device)
     shift_list = None
     with torch.no_grad():
         for inputs, targets, hr in loader:
             inputs, targets, hr = inputs.to(device), targets.to(device), hr.to(device)
             outputs = model(inputs)
+            if outputs.shape[-1] != targets.shape[-1] :
+                outputs = outputs[:,:-1]
             outputs = bandpass_fft_soft(outputs)
             outputs = z_norm_per_sample(outputs)
 
@@ -56,12 +58,13 @@ def validate(model, loader, criterion, device, epoch, fs=30):
                 shift_list_save.append(shift_list.detach().cpu().numpy())
 
             elif is_physformer:
-                loss_kl, loss_ce, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
+                loss_kl, _, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
                     outputs, hr, Fs=30, std=1.0)
                 
-                ncorloss = ncor_fn(outputs, targets)
+                ncorloss, shift_list = ncor_fn(outputs, targets,epoch)
+                shift_list_save.append(shift_list.detach().cpu().numpy())
 
-                if epoch <= 50:
+                if epoch <= 30:
                     a = a_start
                     b = b_start
 
@@ -71,10 +74,10 @@ def validate(model, loader, criterion, device, epoch, fs=30):
                     # exp ascend
                     b = math.pow(exp_b, epoch/100.0) / math.sqrt(2)
 
-                loss = a* ncorloss + b*(loss_kl + loss_ce)          # running_loss에 넣을 total
+                loss = a* ncorloss + b*(loss_kl)          # running_loss에 넣을 total
                 running_ncor += ncorloss.item()
                 running_kl   += loss_kl.item()
-                running_ce   += loss_ce.item()    
+       
 
             running_loss += loss.item()
             batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs, shift_list)
@@ -92,7 +95,7 @@ def validate(model, loader, criterion, device, epoch, fs=30):
     elif is_physformer:
         metrics['ncor'] = running_ncor / len(loader)
         metrics['kl']   = running_kl   / len(loader)
-        metrics['ce']   = running_ce   / len(loader)  # ← running_ce 맞게
+        metrics['shift_list'] = np.concatenate(shift_list_save)
     elif is_ncors :
         metrics['shift_list'] = np.concatenate(shift_list_save)
 
@@ -120,7 +123,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
     is_physformer = isinstance(criterion, physformerLoss)
     is_ncors = isinstance(criterion ,NCorshift)
 
-    ncor_fn = Neg_Pearson().to(device) 
+    ncor_fn = NCorshift().to(device) 
     shift_list = None
     for inputs, targets, hr in loader:
         inputs, targets, hr = inputs.to(device), targets.to(device), hr.to(device)
@@ -129,6 +132,8 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
         outputs = model(inputs)
         outputs = bandpass_fft_soft(outputs)
         outputs = z_norm_per_sample(outputs) ## 입력전 znorm physformer 논문기반
+        if outputs.shape[-1] != targets.shape[-1] :
+            outputs = outputs[:,:-1]
         
         if is_hybrid:
             loss, loss_ncor, loss_mse = criterion(outputs, targets)
@@ -142,12 +147,12 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
             loss, shift_list = criterion(outputs, targets, epoch)     
 
         elif is_physformer:
-            loss_kl, loss_ce, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
+            loss_kl, _, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
                 outputs, hr, Fs=30, std=1.0)
             
-            ncorloss = ncor_fn(outputs, targets)
+            ncorloss, shift_list = ncor_fn(outputs, targets, epoch)
 
-            if epoch <= 50:
+            if epoch <= 30:
                 a = a_start
                 b = b_start
             else:
@@ -156,10 +161,10 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
                 # exp ascend
                 b = math.pow(exp_b, epoch/100.0) / math.sqrt(2)
 
-            loss = a* ncorloss + b*(loss_kl + loss_ce)          # running_loss에 넣을 total
+            loss = a* ncorloss + b*(loss_kl)          # running_loss에 넣을 total
             running_ncor += ncorloss.item()
             running_kl   += loss_kl.item()
-            running_ce   += loss_ce.item()    
+
 
         
         loss.backward()
@@ -180,6 +185,5 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
     elif is_physformer:
         metrics['ncor'] = running_ncor / len(loader)
         metrics['kl']   = running_kl   / len(loader)
-        metrics['ce']   = running_ce   / len(loader)  # ← running_ce 맞게
-
+        
     return metrics

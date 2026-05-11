@@ -168,17 +168,6 @@ for sub_idx in range(len(people)):
     nan_count = 0
     hr_list = []
 
-    for i in range(len(valid_gt_list)):
-        hr, _, _ = hr_fft(valid_gt_list[i], fs=30)
-        if np.isnan(hr):
-            nan_count += 1
-            hr = 0.0  # nan 처리 → 0으로 채움
-        hr_list.append(hr)
-
-    hr_array = np.array(hr_list)  # (N,)
-
-
-
     # 이상치 제거 (0~1 범위 벗어나는 윈도우)
     indi_dict = {'num': 0, 'index': []}
     for w_idx in range(len(valid_vid_raw_list)):
@@ -190,6 +179,17 @@ for sub_idx in range(len(people)):
 
     final_vid_list = [valid_vid_raw_list[w] for w in range(len(valid_vid_raw_list)) if w not in indi_dict['index']]
     final_gt_list  = [valid_gt_list[w]      for w in range(len(valid_gt_list))      if w not in indi_dict['index']]
+
+    for i in range(len(final_gt_list)):
+        hr, _, _ = hr_fft(final_gt_list[i], fs=30)
+        if np.isnan(hr):
+            nan_count += 1
+            hr = 0.0  # nan 처리 → 0으로 채움
+        hr_list.append(hr)
+
+        hr_array = np.array(hr_list)  # (N,)
+
+    
 
     if len(final_vid_list) > 0:
         video_array = np.stack(final_vid_list)

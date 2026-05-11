@@ -97,15 +97,6 @@ for epoch in main_pbar:
             f"Test Loss: {test_metrics['loss']:.4f}, MAE: {test_metrics['mae']:.2f}"
         )
     else :
-        if epoch < 50 :
-            tqdm.write(
-                f"Epoch [{epoch+1}/{num_epochs}] "
-                f"Train Loss: {train_metrics['loss']:.4f} NCOR:{train_metrics['ncor']:.4f}, MAE: {train_metrics['mae']:.2f} | " 
-                f"Val Loss: {val_metrics['loss']:.4f} NCOR:{val_metrics['ncor']:.4f}, MAE: {val_metrics['mae']:.2f} | "
-                f"Test Loss: {test_metrics['loss']:.4f} NCOR:{test_metrics['ncor']:.4f}, MAE: {test_metrics['mae']:.2f}"
-            )
-
-        else :
             tqdm.write(
                 f"Epoch [{epoch+1}/{num_epochs}] "
                 f"Train Loss: {train_metrics['loss']:.4f} NCOR:{train_metrics['ncor']:.4f}, kl:{train_metrics['kl']:.4f}, ce:{train_metrics['ce']:.4f}, MAE: {train_metrics['mae']:.2f} | " 

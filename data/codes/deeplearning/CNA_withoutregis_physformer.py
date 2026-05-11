@@ -21,6 +21,7 @@ from utils.train import *
 from utils.dataloader import *
 from utils.models import *
 from utils.train_without_ce import *
+import gc
 
 ##  2. 13번 subject를 뺏을떄 mae가 적절하게 나오는지 13번의 히스토그램상 혼자 이상해서 예를 빼는게맞는지 혹은 train에 넣기
 
@@ -87,7 +88,7 @@ model = PhysFormerWrapper(base_model).to(device)
 max_shift_sec = 1/2
 shift_start_epoch = 30
 
-criterion = NCorshift(fs=30, max_shift_sec= max_shift_sec , shift_start_epoch= shift_start_epoch, eps=1e-8)
+criterion = physformerloss()
 lr_ = 1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
 num_epochs = 100
@@ -146,6 +147,9 @@ for epoch in main_pbar:
             np.save(os.path.join(shift_list_save_dir, f'best_val_shifts_{epoch+1}.npy') , val_metrics['shift_list'] )
         if 'shift_list' in test_metrics :
             np.save(os.path.join(shift_list_save_dir, f'best_test_shifts_{epoch+1}.npy') , test_metrics['shift_list'] )
+    
+    torch.cuda.empty_cache()
+    gc.collect()
 
 
 

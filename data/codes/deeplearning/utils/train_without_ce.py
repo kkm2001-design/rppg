@@ -32,7 +32,7 @@ def validate_2(model, loader, criterion, device, epoch, fs=30):
     is_physformer = isinstance(criterion, physformerLoss)
 
     # 루프 밖에서 한 번만 생성
-    ncor_fn = Neg_Pearson().to(device)
+    ncor_fn = NCorshift().to(device)
 
     with torch.no_grad():
         for inputs, targets, hr in loader:
@@ -54,9 +54,9 @@ def validate_2(model, loader, criterion, device, epoch, fs=30):
                 loss_kl, _, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
                     outputs, hr, Fs=30, std=1.0)
                 
-                ncorloss = ncor_fn(outputs, targets)
+                ncorloss, best_shift = ncor_fn(outputs, targets, epoch)
 
-                if epoch <= 50:
+                if epoch <= 30:
                     a = a_start
                     b = b_start
 
@@ -111,7 +111,7 @@ def train_one_epoch_2(model, loader, criterion, optimizer, device, epoch, fs=30)
     is_hybrid = isinstance(criterion, HybridLoss) 
     is_negcor = isinstance(criterion, Neg_Pearson)
     is_physformer = isinstance(criterion, physformerLoss)
-    ncor_fn = Neg_Pearson().to(device) 
+    ncor_fn = NCorshift().to(device)
 
     for inputs, targets, hr in loader:
         inputs, targets, hr = inputs.to(device), targets.to(device), hr.to(device)
@@ -133,12 +133,14 @@ def train_one_epoch_2(model, loader, criterion, optimizer, device, epoch, fs=30)
             loss_kl, _, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
                 outputs, hr, Fs=30, std=1.0)
             
-            ncorloss = ncor_fn(outputs, targets)
+            ncorloss, best_shift = ncor_fn(outputs, targets, epoch)
 
-            if epoch <= 50:
+            if epoch <= 30:
+              
                 a = a_start
                 b = math.pow(exp_b, epoch/100.0)*b_start
             else:
+                
                 # exp descend
                 a = a_start*math.pow(exp_a, epoch/100.0) * math.sqrt(2)
                 # exp ascend
