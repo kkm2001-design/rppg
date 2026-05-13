@@ -22,10 +22,11 @@ def validate(model, loader, criterion, device, epoch, fs=30):
     running_ce   = 0.0
     total_valid_samples = 0
 
-    a_start = 1   
-    b_start = 0   
-    exp_a   = 0.5   
-    exp_b   = 2.0   
+    transition_epochs = 30  # 30 에포크까지만 변화
+    a_start = 1.0
+    a_end = 0.6             # 30 에포크 이후 고정될 a값
+    b_start = 0.0
+    b_end = 0.3
 
     is_hybrid     = isinstance(criterion, HybridLoss)
     is_negcor     = isinstance(criterion, Neg_Pearson) 
@@ -64,20 +65,18 @@ def validate(model, loader, criterion, device, epoch, fs=30):
                 ncorloss, shift_list = ncor_fn(outputs, targets,epoch)
                 shift_list_save.append(shift_list.detach().cpu().numpy())
 
-                if epoch <= 30:
-                    a = a_start
-                    b = b_start
-
-                else:
-                    # exp descend
-                    a = a_start*math.pow(exp_a, epoch/100.0) * math.sqrt(2)
-                    # exp ascend
-                    b = math.pow(exp_b, epoch/100.0) / math.sqrt(2)
-
-                loss = a* ncorloss + b*(loss_kl)          # running_loss에 넣을 total
+                progress = min(epoch / transition_epochs, 1.0)
+            
+                # a: 1.0에서 시작해 0.6까지 직선으로 감소 후 고정
+                a = a_start - (a_start - a_end) * progress
+                
+                # b: 0.0에서 시작해 0.3까지 직선으로 증가 후 고정
+                b = b_start + (b_end - b_start) * progress
+                
+                loss = a * ncorloss + b * loss_kl
+                
                 running_ncor += ncorloss.item()
                 running_kl   += loss_kl.item()
-       
 
             running_loss += loss.item()
             batch_mae_sum, valid_count = calculate_batch_mae(outputs, targets, fs, shift_list)
@@ -113,11 +112,12 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
     running_ce = 0.0
     total_valid_samples = 0
 
-    a_start = 1   
-    b_start = 0   
-    exp_a   = 0.5   
-    exp_b   = 2.0   
-    
+    transition_epochs = 30
+    a_start = 1.0
+    a_end = 0.6             # 30 에포크 이후 고정될 a값
+    b_start = 0.0
+    b_end = 0.3
+
     is_hybrid = isinstance(criterion, HybridLoss) 
     is_negcor     = isinstance(criterion, Neg_Pearson) 
     is_physformer = isinstance(criterion, physformerLoss)
@@ -152,14 +152,13 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
             
             ncorloss, shift_list = ncor_fn(outputs, targets, epoch)
 
-            if epoch <= 30:
-                a = a_start
-                b = b_start
-            else:
-                # exp descend
-                a = a_start*math.pow(exp_a, epoch/100.0) * math.sqrt(2)
-                # exp ascend
-                b = math.pow(exp_b, epoch/100.0) / math.sqrt(2)
+            progress = min(epoch / transition_epochs, 1.0)
+        
+            # a: 1.0에서 시작해 0.6까지 직선으로 감소 후 고정
+            a = a_start - (a_start - a_end) * progress
+            
+            # b: 0.0에서 시작해 0.3까지 직선으로 증가 후 고정
+            b = b_start + (b_end - b_start) * progress
 
             loss = a* ncorloss + b*(loss_kl)          # running_loss에 넣을 total
             running_ncor += ncorloss.item()

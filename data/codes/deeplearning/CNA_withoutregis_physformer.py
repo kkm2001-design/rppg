@@ -28,8 +28,8 @@ import gc
 
 
 data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_without_registration_cropped_len300'
-parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/physformer/300franewithoutregis_13out_and_znorm/bandpassbeforelosscompute_ncorshift'
-shift_list_save_dir = '/home/son/orientation-uv-rppg/data/shift_list_save/CNA_data/physformer/without_regis_300frmae_bandpassbeforelosscompute_negcorshift'
+parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/physformer/300franewithoutregis_13out_and_znorm/ncorshift+kldiv'
+shift_list_save_dir = '/home/son/orientation-uv-rppg/data/shift_list_save/CNA_data/physformer/without_regis_300frmaenegcorshift'
 os.makedirs(parameter_save_dir, exist_ok= True)
 os.makedirs(shift_list_save_dir, exist_ok= True)
 

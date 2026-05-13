@@ -25,23 +25,23 @@ from utils.train_without_ce import *
 
 
 
-data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_without_registration_cropped'
-parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/900franewithoutregis_13out_and_znorm/bandpassbeforelosscompute_ncorshift'
-shift_list_save_dir = '/home/son/orientation-uv-rppg/data/shift_list_save/CNA_data/without_regis_900frmae_bandpassbeforelosscompute_negcorshift'
+data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_without_registration_cropped_len300'
+parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/300franewithoutregis/klloss+ncorshift/fold3'
+shift_list_save_dir = '/home/son/orientation-uv-rppg/data/shift_list_save/CNA_data/300franewithoutregis/klloss+ncorshift/fold3'
 os.makedirs(parameter_save_dir, exist_ok= True)
 os.makedirs(shift_list_save_dir, exist_ok= True)
 
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
-train_files = all_files[:12]
-valid_files = all_files[13:14]  
-test_files = all_files[14:]
+train_files = all_files[:8] + all_files[12:]
+valid_files = all_files[8:10]
+test_files = all_files[10:12]
 
 train_dataset = rPPGDataset(train_files)
 valid_dataset = rPPGDataset(valid_files)
 test_dataset = rPPGDataset(test_files)
 
-batch_size = 8
+batch_size = 24
 
 train_loader = DataLoader(train_dataset, batch_size = batch_size , shuffle = True, num_workers =4)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
@@ -64,13 +64,13 @@ model = PhysNet_padding_Encoder_Decoder_MAX().to(device)
 max_shift_sec = 1/2
 shift_start_epoch = 30
 
-criterion = physformerloss()
+criterion = physformerLoss()
 lr_ = 1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
-num_epochs = 100
+num_epochs = 80
 
-print('3dphysnettest train_files = all_files[:12] valid_files = all_files[13:14]test_files = alt_files[14:]]')
-print(f'900frame / gt subjectwise test / without registration/ 13subject out / bandpassbeforelosscompute_ncorshift/ shift_sec :{max_shift_sec}/ shift_start_epoch : {shift_start_epoch} ')
+print('3dphysnettest fold3')
+print(f'300frame / gt subjectwise test / without registration/ 13subject out / bandpassbeforelosscompute_ncorshift+klloss/ shift_sec :{max_shift_sec}/ shift_start_epoch : {shift_start_epoch} ')
 
 
 best_val_loss = float('inf')
@@ -107,13 +107,12 @@ for epoch in main_pbar:
             f"Test Loss: {test_metrics['loss']:.4f}, MAE: {test_metrics['mae']:.2f}"
         )
     else :
-
-            tqdm.write(
-                f"Epoch [{epoch+1}/{num_epochs}] "
-                f"Train Loss: {train_metrics['loss']:.4f} NCOR:{train_metrics['ncor']:.4f}, kl:{train_metrics['kl']:.4f}, MAE: {train_metrics['mae']:.2f} | " 
-                f"Val Loss: {val_metrics['loss']:.4f} NCOR:{val_metrics['ncor']:.4f}, kl:{val_metrics['kl']:.4f}, MAE: {val_metrics['mae']:.2f} | "
-                f"Test Loss: {test_metrics['loss']:.4f} NCOR:{test_metrics['ncor']:.4f}, kl:{test_metrics['kl']:.4f}, MAE: {test_metrics['mae']:.2f}"
-            )
+        tqdm.write(
+            f"Epoch [{epoch+1}/{num_epochs}] "
+            f"Train Loss: {train_metrics['loss']:.4f} NCOR:{train_metrics['ncor']:.4f}, kl:{train_metrics['kl']:.4f}, MAE: {train_metrics['mae']:.2f} | " 
+            f"Val Loss: {val_metrics['loss']:.4f} NCOR:{val_metrics['ncor']:.4f}, kl:{val_metrics['kl']:.4f}, MAE: {val_metrics['mae']:.2f} | "
+            f"Test Loss: {test_metrics['loss']:.4f} NCOR:{test_metrics['ncor']:.4f}, kl:{test_metrics['kl']:.4f}, MAE: {test_metrics['mae']:.2f}"
+        )
 
     torch.save(model.state_dict(), os.path.join(parameter_save_dir, f'{str(lr_)}_epoch:{str(epoch+1)}_MAE:{val_metrics["mae"]: .2f}.pth'))
 

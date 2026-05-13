@@ -62,7 +62,7 @@ def process_robust_diff(input_dir, output_dir):
                 f_out.attrs['desc'] = "First-order diff + std-norm + 3-clipping applied"
 
 # ===== 실행 =====
-input_path = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_without_registration_cropped_len300'
-output_path = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_without_registration_diffnorm_len300'
+input_path = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/driving_cropped_dl_data'
+output_path = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/driving_Xnorm_dl_data'
 
 process_robust_diff(input_path, output_path)

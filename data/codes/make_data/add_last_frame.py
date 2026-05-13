@@ -7,8 +7,8 @@ import h5py
 from tqdm import tqdm
 
 # 경로 설정
-input_dir = "/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_without_registration_diffnorm_len300"
-output_dir = "/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_without_registration_diffnorm_len300_final"
+input_dir = "/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/driving_Xnorm_dl_data"
+output_dir = "/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/driving_Xnorm_dl_data_f"
 os.makedirs(output_dir, exist_ok=True)
 
 file_paths = glob.glob(os.path.join(input_dir, "*.h5"))
