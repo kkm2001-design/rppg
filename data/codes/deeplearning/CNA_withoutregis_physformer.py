@@ -88,7 +88,7 @@ model = PhysFormerWrapper(base_model).to(device)
 max_shift_sec = 1/2
 shift_start_epoch = 30
 
-criterion = physformerloss()
+criterion = physformerLoss()
 lr_ = 1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
 num_epochs = 100
