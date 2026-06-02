@@ -26,16 +26,16 @@ from utils.train_without_ce import *
 
 
 data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_without_registration_cropped_len300'
-parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/300franewithoutregis/klloss+ncorshift/fold3'
+parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/300franewithoutregis/klloss+ncorshift/ncor_without_shift/fold3'
 shift_list_save_dir = '/home/son/orientation-uv-rppg/data/shift_list_save/CNA_data/300franewithoutregis/klloss+ncorshift/fold3'
 os.makedirs(parameter_save_dir, exist_ok= True)
 os.makedirs(shift_list_save_dir, exist_ok= True)
 
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
-train_files = all_files[:8] + all_files[12:]
-valid_files = all_files[8:10]
-test_files = all_files[10:12]
+train_files = all_files[:12] 
+valid_files = all_files[12:13]
+test_files = all_files[13:]
 
 train_dataset = rPPGDataset(train_files)
 valid_dataset = rPPGDataset(valid_files)
@@ -64,13 +64,13 @@ model = PhysNet_padding_Encoder_Decoder_MAX().to(device)
 max_shift_sec = 1/2
 shift_start_epoch = 30
 
-criterion = physformerLoss()
+criterion = NCorshift()
 lr_ = 1e-4
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr_)
 num_epochs = 80
 
-print('3dphysnettest fold3')
-print(f'300frame / gt subjectwise test / without registration/ 13subject out / bandpassbeforelosscompute_ncorshift+klloss/ shift_sec :{max_shift_sec}/ shift_start_epoch : {shift_start_epoch} ')
+print('3dphysnettest fold4')
+print(f'300frame / gt subjectwise test / without registration/ 13subject out / bandpassbeforelosscompute_ncor/  ')
 
 
 best_val_loss = float('inf')

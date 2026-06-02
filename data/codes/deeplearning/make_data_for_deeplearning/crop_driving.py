@@ -185,13 +185,13 @@ def crop_windows(video_windows, output_size=(128, 128)):
 
 # ===== 설정 =====
 input_dir = '/nasdata4/2yhy/rPPG_code/rPPG_datasets/h5_data/MR-NIRP_driving_motion'
-output_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/driving_cropped_dl_data'
+output_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/small_motion_cropped_dl_data'
 os.makedirs(output_dir, exist_ok=True)
 
 fs = 30
 window_size = 300
 
-files = sorted([os.path.join(input_dir,s) for s in os.listdir(input_dir) if s.endswith('garage_large_motion_975.h5') ])
+files = sorted([os.path.join(input_dir,s) for s in os.listdir(input_dir) if s.endswith('small_motion_940.h5') ])
 
 #h5_files = sorted(glob.glob(os.path.join(input_dir, '*.h5')))
 print(f'Found {len(files)} h5 files')
@@ -234,7 +234,7 @@ for h5_path in files:
     
 
     # 4. MediaPipe crop → 64×64
-    cropped = crop_windows(imgs_windowed, output_size=(128, 128))
+    cropped = crop_windows(imgs_windowed, output_size=(64, 64))
     # (n_windows, 300, 64, 64)
 
     print(f'Cropped shape: {cropped.shape}')
@@ -247,7 +247,7 @@ for h5_path in files:
         dset = f.create_dataset(
             'video',
             data=cropped,
-            chunks=(1, window_size, 128, 128),
+            chunks=(1, window_size, 64, 64),
             compression='gzip',
             compression_opts=4
         )
