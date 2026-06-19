@@ -122,7 +122,7 @@ def ppg_to_window(ppg, fail_index, window_size=900, lowcut=0.75, highcut=2.5) :
 
 
 
-def hr_fft(sig, fs, harmonics_removal=True, lowcut=0.66, highcut=2.5, nfft=None):
+def hr_fft(sig, fs, harmonics_removal=False, lowcut=0.66, highcut=2.5, nfft=None):
     sig = sig.reshape(-1)
     N = sig.shape[0]
     sig = sig * signal.windows.hann(N)
@@ -495,7 +495,7 @@ def bandpass_fft(signal, fs =30, low_hz=0.66, high_hz=2.5):
     return filtered
 
 
-def bandpass_fft_soft(signal, fs=30, low_hz=0.66, high_hz=2.5, steepness=50.0):
+def bandpass_fft_soft(signal, fs=30, low_hz=0.66, high_hz=3, steepness=50.0):
     N = signal.shape[-1]
     freqs = torch.fft.rfftfreq(N, d=1.0/fs).to(signal.device)
     

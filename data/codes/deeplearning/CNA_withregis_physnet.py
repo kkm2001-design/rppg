@@ -27,9 +27,9 @@ from utils.train_without_ce import *
 
 data_dir = '/home/son/orientation-uv-rppg/video_link/CNA_members/KM_preprocess_data/dl_data_CNA_70_withoutoutlier_len300'
 parameter_save_dir = '/home/son/orientation-uv-rppg/data/parameter_save/300franewithregis_13out_and_znorm/ncor_withoutshift'
-shift_list_save_dir = '/home/son/orientation-uv-rppg/data/shift_list_save/CNA_data/300franewithregis_diffnorm/bandpassbeforelosscompute_physformer+ncorshift'
+
 os.makedirs(parameter_save_dir, exist_ok= True)
-os.makedirs(shift_list_save_dir, exist_ok= True)
+
 
 all_files = [os.path.join(data_dir, u) for u in sorted(os.listdir(data_dir)) if u.endswith('.h5') ]
 
@@ -61,8 +61,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #model = rPPG_3D_ResNet().to(device) 
 model = PhysNet_padding_Encoder_Decoder_MAX().to(device) 
 
-max_shift_sec = 1/2
-shift_start_epoch = 30
+
 
 criterion = NCorshift()
 lr_ = 1e-4
@@ -119,10 +118,6 @@ for epoch in main_pbar:
 
     if val_metrics['loss'] < best_val_loss :
         best_val_loss = val_metrics['loss']
-        if 'shift_list' in val_metrics :
-            np.save(os.path.join(shift_list_save_dir, f'best_val_shifts_{epoch+1}.npy') , val_metrics['shift_list'] )
-        if 'shift_list' in test_metrics :
-            np.save(os.path.join(shift_list_save_dir, f'best_test_shifts_{epoch+1}.npy') , test_metrics['shift_list'] )
 
 
 

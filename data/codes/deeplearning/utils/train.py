@@ -34,7 +34,7 @@ def validate(model, loader, criterion, device, epoch, fs=30):
     is_ncors = isinstance(criterion ,NCorshift)
 
     shift_list_save = []
-    ncor_fn = NCorshift().to(device)
+    ncor_fn = Neg_Pearson().to(device)
     shift_list = None
     with torch.no_grad():
         for inputs, targets, hr in loader:
@@ -62,8 +62,8 @@ def validate(model, loader, criterion, device, epoch, fs=30):
                 loss_kl, _, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
                     outputs, hr, Fs=30, std=1.0)
                 
-                ncorloss, shift_list = ncor_fn(outputs, targets,epoch)
-                shift_list_save.append(shift_list.detach().cpu().numpy())
+                ncorloss = ncor_fn(outputs, targets)
+                #shift_list_save.append(shift_list.detach().cpu().numpy())
 
                 progress = min(epoch / transition_epochs, 1.0)
             
@@ -94,9 +94,8 @@ def validate(model, loader, criterion, device, epoch, fs=30):
     elif is_physformer:
         metrics['ncor'] = running_ncor / len(loader)
         metrics['kl']   = running_kl   / len(loader)
-        metrics['shift_list'] = np.concatenate(shift_list_save)
-    elif is_ncors :
-        metrics['shift_list'] = np.concatenate(shift_list_save)
+
+
 
     return metrics
 
@@ -123,7 +122,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
     is_physformer = isinstance(criterion, physformerLoss)
     is_ncors = isinstance(criterion ,NCorshift)
 
-    ncor_fn = NCorshift().to(device) 
+    ncor_fn = Neg_Pearson().to(device) 
     shift_list = None
     for inputs, targets, hr in loader:
         inputs, targets, hr = inputs.to(device), targets.to(device), hr.to(device)
@@ -150,7 +149,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, epoch, fs=30):
             loss_kl, _, _ = criterion.cross_entropy_power_spectrum_DLDL_softmax2(
                 outputs, hr, Fs=30, std=1.0)
             
-            ncorloss, shift_list = ncor_fn(outputs, targets, epoch)
+            ncorloss = ncor_fn(outputs, targets)
 
             progress = min(epoch / transition_epochs, 1.0)
         
